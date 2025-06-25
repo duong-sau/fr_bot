@@ -5,10 +5,10 @@ from Core.StopTimer import StopTimer
 import json
 import os
 
-config_path = os.path.join(os.path.dirname(__file__), '..', 'Config.json')
+config_path = os.path.join(os.path.dirname(__file__), '..', 'ini', 'Config.json')
 with open(config_path, 'r') as f:
     config = json.load(f)
-server_url = config['alarm_server']['url']
+server_url = config['alive_server']['url']
 
 class AliveServiceClient:
     def __init__(self, service_name):

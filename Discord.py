@@ -28,7 +28,7 @@ if __name__ == '__main__':
     sub_server_ok = True
     push_notification('start discord bot')
 
-    if not len(sys.argv) < 2:
+    if len(sys.argv) < 2:
         print("Usage: python3 DiscordServer.py <log_file>")
         sys.exit(1)
     log_file = sys.argv[1]

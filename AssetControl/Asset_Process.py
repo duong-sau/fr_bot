@@ -21,6 +21,8 @@ start_time = time.time()
 def asset_control_log(message):
     log_file = os.path.join(asset_log_path, f"{time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(start_time))}.log")
     write_log(message, log_file)
+    sys_log = os.path.join(asset_log_path, 'syslog.log')
+    write_log(message, sys_log)
 
 def start_cruses():
     stdscr = curses.initscr()  # Khởi tạo curses
