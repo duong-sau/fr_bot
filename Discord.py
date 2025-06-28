@@ -24,6 +24,7 @@ if __name__ == '__main__':
         config = json.load(config_file)
     webhook_url = config['discord'].get('webhook', '')
     server_url = config['alive_server'].get('url', '')
+    service_name = config['alive_server'].get('name', '')
 
     sub_server_ok = True
     push_notification('start discord bot')
@@ -49,9 +50,9 @@ if __name__ == '__main__':
 
         _sub_server_ok = True
         try:
-            resp = requests.get('', timeout=5)
+            resp = requests.get(f"{server_url}", params={"name": service_name})
             if not resp.ok or not resp.text.strip():
-                sub_server_ok = False
+                _sub_server_ok = False
         except Exception:
             _sub_server_ok = False
 

@@ -1,20 +1,13 @@
 import Config
 from Core.Define import PositionSide, Position, EXCHANGE
+from Exchange import Exchange
 from Tracker.Tracker import AccountBalance
 
 
 class GateIOTracker:
     def __init__(self):
-        """
-        Initialize the Tracker with a ccxt GateIO client.
-        """
-        import ccxt
-        self.client = ccxt.gateio({
-            'apiKey': Config.gate_api_key,
-            'secret': Config.gate_api_secret,
-            'enableRateLimit': True,
-        })
-        self.client.options['defaultType'] = 'swap'
+       self.client = Exchange.binance_exchange
+
     def get_open_positions(self):
         """
         Get all currently open positions on GateIO Futures.

@@ -1,8 +1,12 @@
 import sys
 import curses
 import time
-
 import ccxt
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
 
 from Core.Define import EXCHANGE
 from FrAbitrageCore import FrAbitrageCore
@@ -94,27 +98,27 @@ def draw_main(stdscr):
         bitget_asset_info = bitget_tracker.get_cross_margin_account_info()
         import ast
 
-        with open('fundingrate.csv', 'r', encoding='utf-8') as f:
-            funding_data = ast.literal_eval(f.read())
-        funding_diff = []
-        for symbol, rates in funding_data.items():
-            if 'binance' in rates and 'bitget' in rates:
-                diff = round(rates['binance'] - rates['bitget'], 2)
-                funding_diff.append((symbol, rates['binance'], rates['bitget'], diff))
-
-            # Merge funding_diff into positions by symbol
-            for pos in fr_abitrage_core.positions:
-                for symbol, binance_rate, bitget_rate, diff in funding_diff:
-                    if pos.long_position.symbol == symbol:
-                        if pos.long_position.exchange == EXCHANGE.BINANCE:
-                            pos.long_funding = binance_rate
-                            pos.short_funding = bitget_rate
-                            pos.funding_diff = - diff
-                        elif pos.long_position.exchange == EXCHANGE.BITGET:
-                            pos.long_funding = bitget_rate
-                            pos.short_funding = binance_rate
-                            pos.funding_diff = diff
-                        break
+        # with open('fundingrate.csv', 'r', encoding='utf-8') as f:
+        #     funding_data = ast.literal_eval(f.read())
+        # funding_diff = []
+        # for symbol, rates in funding_data.items():
+        #     if 'binance' in rates and 'bitget' in rates:
+        #         diff = round(rates['binance'] - rates['bitget'], 2)
+        #         funding_diff.append((symbol, rates['binance'], rates['bitget'], diff))
+        #
+        #     # Merge funding_diff into positions by symbol
+        #     for pos in fr_abitrage_core.positions:
+        #         for symbol, binance_rate, bitget_rate, diff in funding_diff:
+        #             if pos.long_position.symbol == symbol:
+        #                 if pos.long_position.exchange == EXCHANGE.BINANCE:
+        #                     pos.long_funding = binance_rate
+        #                     pos.short_funding = bitget_rate
+        #                     pos.funding_diff = - diff
+        #                 elif pos.long_position.exchange == EXCHANGE.BITGET:
+        #                     pos.long_funding = bitget_rate
+        #                     pos.short_funding = binance_rate
+        #                     pos.funding_diff = diff
+        #                 break
 
         asset = {
             'binance': binance_asset_info,

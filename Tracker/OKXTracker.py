@@ -1,18 +1,13 @@
 import Config
 from Core.Define import PositionSide, Position, EXCHANGE
+from Exchange import Exchange
 from Tracker.Tracker import AccountBalance
 
 
 class OKXTracker:
     def __init__(self):
-        import ccxt
-        self.client = ccxt.okx({
-            'apiKey': Config.okx_api_key,
-            'secret': Config.okx_api_secret,
-            'password': Config.okx_password,
-            'enableRateLimit': True,
-        })
-        self.client.options['defaultType'] = 'swap'
+       self.client = Exchange.okx_exchange
+
     def get_open_positions(self):
         """
 

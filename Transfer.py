@@ -2,14 +2,31 @@ import os.path
 import sys
 import time
 
+import ccxt
+
+import Config
+from Config import bitget_deposit_info, binance_deposit_info
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
 
 from Core.Define import EXCHANGE
 from Define import tunel_log_path, transfer_done_file
 from Tool import try_this, write_log
-from init import bitget, binance, binance_address, bitget_address
 
+
+bitget = ccxt.bitget({
+            'apiKey': Config.bitget_api_key,
+            'secret': Config.bitget_api_secret,
+            'password': Config.bitget_password,
+            'enableRateLimit': True,
+        })
+
+
+binance = ccxt.binance({
+            'apiKey': Config.binance_api_key,
+            'secret': Config.binance_api_secret,
+            'enableRateLimit': True,
+        })
 
 start_time = time.time()
 
@@ -29,13 +46,13 @@ def transfer_swap_to_spot(exchange, amount):
 
 def with_draw_from_spot(exchange, amount):
     if exchange == EXCHANGE.BINANCE:
-        withdraw = binance.withdraw(code='USDT', amount=amount, address=bitget_address,
-                                    params={'chain': 'BSC', 'network': 'BEP20'})
+        withdraw = binance.withdraw(code='USDT', amount=amount, address=bitget_deposit_info['address'],
+                                    params={'chain': bitget_deposit_info['chain'], 'network': bitget_deposit_info['network']})
         tunel_log(withdraw)
         return withdraw['id']
     elif exchange == EXCHANGE.BITGET:
-        withdraw = bitget.withdraw(code='USDT', amount=amount, address=binance_address,
-                                   params={'chain': 'BEP20', 'network': 'BEP20'})
+        withdraw = bitget.withdraw(code='USDT', amount=amount, address=Config.binance_deposit_info['address'],
+                                   params={'chain': binance_deposit_info['chain'], 'network': Config.binance_deposit_info['network']})
         tunel_log(withdraw)
         return withdraw['id']
     else:
@@ -92,9 +109,9 @@ def wait_for_desposit(exchange, txid):
     """
     try:
         if exchange == EXCHANGE.BINANCE:
-            deposits = binance.fetchDeposits(code='USDT', limit=10, params={'network': 'BEP20'})
+            deposits = binance.fetchDeposits(code='USDT', limit=10, params={'network': binance_deposit_info['network']})
         elif exchange == EXCHANGE.BITGET:
-            deposits = bitget.fetchDeposits(code='USDT', limit=10, params={'network': 'BEP20'})
+            deposits = bitget.fetchDeposits(code='USDT', limit=10, params={'network': bitget_deposit_info['network']})
         else:
             raise ValueError("Unsupported exchange for waiting deposit.")
         for deposit in deposits:
@@ -145,7 +162,7 @@ def transfer_tunel(from_exchange, to_exchange, amount):
         try_this(wait_for_desposit, params={'exchange': to_exchange, 'txid': txid}, log_func=tunel_log, retries=30, delay=10)
 
         # Transfer from spot to swap
-        time.sleep(10)
+        time.sleep(30)
         try_this(transfer_spot_to_swap, params={'exchange': to_exchange, 'amount': amount}, log_func=tunel_log, retries=5, delay=5)
         write_transfer_status(True)
     except Exception as e:

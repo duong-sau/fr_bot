@@ -2,23 +2,14 @@ import ccxt
 
 import Config
 from Core.Define import PositionSide, Position, EXCHANGE
+from Exchange import Exchange
 from Tracker.Tracker import AccountBalance
 
 
 class BitgetTracker:
 
-    api_key = Config.bitget_api_key
-    api_secret = Config.bitget_api_secret
-    password = Config.bitget_password
-
     def __init__(self):
-        self.client = ccxt.bitget({
-            'apiKey': self.api_key,
-            'secret': self.api_secret,
-            'password': self.password,
-            'enableRateLimit': True,
-        })
-        self.client.options['defaultType'] = 'swap'
+        self.client = Exchange.bitget_exchange
     def get_open_positions(self):
         """
         Get all currently open positions on BitGet Futures.

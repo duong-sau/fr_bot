@@ -1,13 +1,13 @@
 import ccxt
 
 import Config
+import Exchange.Exchange
 from Core.Define import PositionSide, Position, EXCHANGE
 from Tracker.Tracker import AccountBalance
 from Tracker import Tracker
 
 class BinanceTracker:
-    api_key = Config.binance_api_key
-    api_secret = Config.binance_api_secret
+
 
     def __init__(self):
         """
@@ -17,12 +17,7 @@ class BinanceTracker:
             api_key: Your Binance API key.
             api_secret: Your Binance API secret.
         """
-
-        self.client = ccxt.binanceusdm({
-            'apiKey': self.api_key,
-            'secret': self.api_secret,
-            'enableRateLimit': True,
-        })
+        self.client = Exchange.Exchange.binance_exchange
 
     def get_open_positions(self):
         """

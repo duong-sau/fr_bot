@@ -34,3 +34,23 @@ empty = [k for k, v in keys if not v]
 
 if empty:
     raise ValueError(f"Missing API keys: {', '.join(empty)}")
+
+binance_deposit_address = data.get('binance', {}).get('address', '')
+binance_deposit_chain = data.get('binance', {}).get('chain', '')
+binance_deposit_network = data.get('bitget', {}).get('address', '')
+
+bitget_deposit_address = data.get('bitget', {}).get('address', '')
+bitget_deposit_chain = data.get('bitget', {}).get('chain', '')
+bitget_deposit_network = data.get('bitget', {}).get('network', '')
+
+binance_deposit_info = {
+    "address": binance_deposit_address,
+    "chain": binance_deposit_chain,
+    "network": binance_deposit_network
+}
+
+bitget_deposit_info = {
+    "address": bitget_deposit_address,
+    "chain": bitget_deposit_chain,
+    "network": bitget_deposit_network
+}
