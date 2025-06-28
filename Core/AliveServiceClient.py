@@ -22,7 +22,10 @@ class AliveServiceClient:
         Simulate a ping to the service.
         """
         # print(f"Pinging {self.service_name} service...")
-        response = requests.get(f"{server_url}", params={"name": self.service_name})
+        try:
+            requests.get(f"{server_url}", params={"name": self.service_name})
+        except Exception as e:
+            print(f"Failed to ping {self.service_name} service: {e}")
         #
         # if response.status_code == 200:
         #     # print(f"{self.service_name} service is alive.")

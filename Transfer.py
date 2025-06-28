@@ -11,8 +11,9 @@ from Config import bitget_deposit_info, binance_deposit_info
 
 from Core.Define import EXCHANGE
 from Define import tunel_log_path, transfer_done_file
+from Exchange.Exchange import gate_exchange
 from Tool import try_this, write_log
-
+from SubTransfer import transfer_from_bitget_main_to_sub
 
 bitget = ccxt.bitget({
             'apiKey': Config.bitget_api_key,
@@ -28,6 +29,8 @@ binance = ccxt.binance({
             'enableRateLimit': True,
         })
 
+gate = gate_exchange
+
 start_time = time.time()
 
 def tunel_log(message):
@@ -41,18 +44,37 @@ def transfer_swap_to_spot(exchange, amount):
     elif exchange == EXCHANGE.BITGET:
         transfer = bitget.transfer(code='USDT', amount=amount, fromAccount='swap', toAccount='spot')
         tunel_log(transfer)
+    elif exchange == EXCHANGE.GATE:
+        # unified account
+        tunel_log("Gate is unified account, no need to transfer from swap to spot.")
+    elif exchange == EXCHANGE.BITGET_SUB:
+        transfer = transfer_from_bitget_main_to_sub(code='USDT', amount=amount, fromAccount='swap', toAccount='spot')
+        tunel_log(transfer)
     else:
         raise ValueError("Unsupported exchange for transfer to spot account.")
 
-def with_draw_from_spot(exchange, amount):
-    if exchange == EXCHANGE.BINANCE:
+def with_draw_from_spot(f_exchange, t_exchange, amount):
+    if f_exchange == EXCHANGE.BINANCE and t_exchange == EXCHANGE.BITGET:
         withdraw = binance.withdraw(code='USDT', amount=amount, address=bitget_deposit_info['address'],
                                     params={'chain': bitget_deposit_info['chain'], 'network': bitget_deposit_info['network']})
         tunel_log(withdraw)
         return withdraw['id']
-    elif exchange == EXCHANGE.BITGET:
+
+    elif f_exchange == EXCHANGE.BITGET and t_exchange == EXCHANGE.BINANCE:
         withdraw = bitget.withdraw(code='USDT', amount=amount, address=Config.binance_deposit_info['address'],
                                    params={'chain': binance_deposit_info['chain'], 'network': Config.binance_deposit_info['network']})
+        tunel_log(withdraw)
+        return withdraw['id']
+
+    elif f_exchange == EXCHANGE.GATE and t_exchange == EXCHANGE.BITGET_SUB:
+        withdraw = gate.withdraw(code='USDT', amount=amount, address=bitget_deposit_info['address'],
+                                 params={'chain': bitget_deposit_info['chain'], 'network': bitget_deposit_info['network']})
+        tunel_log(withdraw)
+        return withdraw['id']
+
+    elif f_exchange == EXCHANGE.BITGET_SUB and t_exchange == EXCHANGE.GATE:
+        withdraw = bitget.withdraw(code='USDT', amount=amount, address=Config.gate_deposit_info['address'],
+                                   params={'chain': Config.gate_deposit_info['chain'], 'network': Config.gate_deposit_info['network']})
         tunel_log(withdraw)
         return withdraw['id']
     else:
@@ -68,8 +90,10 @@ def get_withdrawal_txid(exchange, order_id):
     """
     if exchange == EXCHANGE.BINANCE:
         withdrawals = binance.fetchWithdrawals(code='USDT', params={'limit': 10})
-    elif exchange == EXCHANGE.BITGET:
+    elif exchange == EXCHANGE.BITGET or exchange == EXCHANGE.BITGET_SUB:
         withdrawals = bitget.fetchWithdrawals(code='USDT', params={'limit': 10})
+    elif exchange == EXCHANGE.GATE:
+        withdrawals = gate.fetchWithdrawals(code='USDT', params={'limit': 10})
     else:
         raise ValueError("Unsupported exchange for fetching withdrawal txid.")
 
@@ -110,8 +134,10 @@ def wait_for_desposit(exchange, txid):
     try:
         if exchange == EXCHANGE.BINANCE:
             deposits = binance.fetchDeposits(code='USDT', limit=10, params={'network': binance_deposit_info['network']})
-        elif exchange == EXCHANGE.BITGET:
+        elif exchange == EXCHANGE.BITGET or exchange == EXCHANGE.BITGET_SUB:
             deposits = bitget.fetchDeposits(code='USDT', limit=10, params={'network': bitget_deposit_info['network']})
+        elif exchange == EXCHANGE.GATE:
+            deposits = gate.fetchDeposits(code='USDT', limit=10, params={'network': Config.gate_deposit_info['network']})
         else:
             raise ValueError("Unsupported exchange for waiting deposit.")
         for deposit in deposits:
@@ -135,6 +161,12 @@ def transfer_spot_to_swap(exchange, amount):
     elif exchange == EXCHANGE.BITGET:
         transfer = bitget.transfer(code='USDT', amount=amount, fromAccount='spot', toAccount='swap')
         tunel_log(transfer)
+    elif exchange == EXCHANGE.GATE:
+        # unified account
+        tunel_log("Bitget is unified account, no need to transfer from spot to swap.")
+    elif exchange == EXCHANGE.BITGET_SUB:
+        transfer = transfer_from_bitget_main_to_sub(code='USDT', amount=amount, fromAccount='spot', toAccount='swap')
+        tunel_log(transfer)
     else:
         raise ValueError("Unsupported exchange for transfer to swap account.")
 
@@ -154,7 +186,7 @@ def transfer_tunel(from_exchange, to_exchange, amount):
 
         # Withdraw from spot to other exchange
         time.sleep(3)
-        client_id = try_this(with_draw_from_spot, params={'exchange': from_exchange, 'amount': amount}, log_func=tunel_log, retries=5, delay=5)
+        client_id = try_this(with_draw_from_spot, params={'f_exchange': from_exchange,'t_exchange':to_exchange,  'amount': amount}, log_func=tunel_log, retries=5, delay=5)
 
         # deposit to spot
         time.sleep(30)
@@ -187,6 +219,10 @@ if __name__ == '__main__':
         from_exchange = EXCHANGE.BINANCE
     elif f_exchange == 'bitget':
         from_exchange = EXCHANGE.BITGET
+    elif f_exchange == 'gate':
+        from_exchange = EXCHANGE.GATE
+    elif f_exchange == 'bitget_sub':
+        from_exchange = EXCHANGE.BITGET_SUB
     else:
         raise ValueError("Unsupported exchange. Use 'binance' or 'bitget'.")
 
@@ -195,6 +231,10 @@ if __name__ == '__main__':
         to_exchange = EXCHANGE.BINANCE
     elif t_exchange == 'bitget':
         to_exchange = EXCHANGE.BITGET
+    elif t_exchange == 'gate':
+        to_exchange = EXCHANGE.GATE
+    elif t_exchange == 'bitget_sub':
+        to_exchange = EXCHANGE.BITGET_SUB
     else:
         raise ValueError("Unsupported exchange. Use 'binance' or 'bitget'.")
 

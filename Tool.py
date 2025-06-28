@@ -1,6 +1,26 @@
 import time
 
+current_step = 0
 
+bar = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗']
+
+def step(messages=["Running..."]):
+    global current_step
+    current_step += 1
+    if current_step >= 8:
+        current_step = 0
+
+    clear_lines = "\033[K" * len(messages)  # Xóa tất cả các dòng cũ
+    move_cursor_up = f"\033[{len(messages)}A"  # Đưa con trỏ lên trên
+
+    output = "\n".join(f"{msg}" for msg in messages) + f"\n{bar[current_step]}..."
+    print(f"{clear_lines}{output}{move_cursor_up}\r", end='', flush=True)
+
+def clear_console():
+    """
+    Clear the console output.
+    """
+    print("\033[2J\033[H", end='', flush=True)
 
 def try_this(func, params, log_func, retries=5, delay=10):
     """

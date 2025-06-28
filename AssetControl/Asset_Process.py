@@ -11,11 +11,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Cons
 from Console_.DebugWindow import CursesStream
 from Core.AliveServiceClient import AliveServiceClient
 from Define import asset_log_path, transfer_done_file, SERVICE_NAME
-from Tool import write_log
+from Tool import write_log, step, clear_console
 from Tracker.BinanceTracker import BinanceTracker
 from Tracker.BitgetTracker import BitgetTracker
 from AssetControl.Console import draw_positions_table
-
+from Config import NULL
 start_time = time.time()
 
 def asset_control_log(message):
@@ -53,6 +53,9 @@ def end_cruses(stdscr):
     sys.stderr = sys.__stderr__
 
 class AssetProcess:
+
+    MIN_ASSET_DIFF = 0.05
+
     def __init__(self, binance_tracker, bitget_tracker):
         self.binance_tracker = binance_tracker
         self.bitget_tracker = bitget_tracker
@@ -112,7 +115,7 @@ class AssetProcess:
         bitget_asset_info = self.bitget_tracker.get_cross_margin_account_info()
 
         total = binance_asset_info.total_margin_balance + bitget_asset_info.total_margin_balance
-        min_balance = total/2 - total* 0.05
+        min_balance = total/2 - total* self.MIN_ASSET_DIFF
         self.asset = {
             'binance': binance_asset_info,
             'bitget': bitget_asset_info,
@@ -123,7 +126,7 @@ class AssetProcess:
             # Nếu chênh lệch giữa 2 sàn quá 20% tổng asset thì chuyển lượng chênh lệch (làm tròn đến 10 USDT) từ sàn ít hơn sang sàn nhiều hơn
             total_asset = binance_asset_info.total_margin_balance + bitget_asset_info.total_margin_balance
             diff = abs(binance_asset_info.total_margin_balance - bitget_asset_info.total_margin_balance)
-            if total_asset > 0 and diff / total_asset > 0.05:
+            if total_asset > 0 and diff / total_asset > self.MIN_ASSET_DIFF:
                 move_amount = int(diff/2 // 10) * 10  # Làm tròn xuống đến 10 USDT
                 if move_amount == 0:
                     raise ValueError("The difference is too small to transfer, please check your balances.")
@@ -143,7 +146,11 @@ class AssetProcess:
 
 
 if __name__ == '__main__':
-    stdscr = start_cruses()
+    USE_CRUSES = False
+    if USE_CRUSES:
+        stdscr = start_cruses()
+    else:
+        clear_console()
     # stdscr = None
     venv_python = sys.executable
     # log_file = os.path.join(asset_log_path, f"{time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(start_time))}.log")
@@ -163,12 +170,36 @@ if __name__ == '__main__':
     try:
 
         while True:
+
+            # Alive ping
             alive_service_client.tick()
-            asset_process.tick()
+
+            # Main process loop
+            try:
+                asset_process.tick()
+            except Exception as e:
+                asset_control_log(f"Error during asset process tick: {e}")
+                time.sleep(5)
+
+            # Draw positions table
             asset = asset_process.get_asset_info()
             status = asset_process.get_status()
-            draw_positions_table(stdscr, asset, status)
+
+            if USE_CRUSES:
+                draw_positions_table(stdscr, asset, status)
+            else:
+                step_string1 = f"Binance: {asset['binance'].total_margin_balance} USDT"
+                step_string2 = f"Bitget: {asset['bitget'].total_margin_balance} USDT"
+                step_string3 = f"Estimated Min Balance: {asset['estimated_min_balance']} USDT"
+                step_strings = [step_string1, step_string2, step_string3]
+                if status :
+                    step_strings.append(f"Transfer in progress")
+
+                step(step_strings)
             time.sleep(5)
     except KeyboardInterrupt:
         asset_control_log("Process interrupted by user (Ctrl+C). Exiting...")
-    end_cruses(stdscr)
+
+
+    if USE_CRUSES:
+        end_cruses(stdscr)

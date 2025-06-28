@@ -4,6 +4,7 @@ class EXCHANGE(Enum):
     BINANCE = "BINANCE"
     BYBIT = "BYBIT"
     BITGET = "BITGET"
+    BITGET_SUB = "BITGET_SUB"
     OKX = "OKX"
     GATE = "GATE"
 
