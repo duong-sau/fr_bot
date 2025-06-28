@@ -2,7 +2,7 @@ import json
 
 NULL = None
 
-from Define import exchange_file_path, transfer_info_path
+from Define import exchange_file_path, transfer_info_path, balance_info_path
 
 with open(exchange_file_path, 'r', encoding='utf-8') as f:
     data = json.load(f)
@@ -96,3 +96,11 @@ gate_deposit_info = {
     "chain": gate_deposit_chain,
     "network": gate_deposit_network
 }
+
+with open(balance_info_path, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+max_diff_rate = data.get('max_diff_rate', 0)
+print(f"Max difference rate: {max_diff_rate}")
+if not (0 < max_diff_rate < 100):
+    raise ValueError(f"Invalid max_diff_rate: {max_diff_rate}. It must be between 0 and 1.")
+max_diff_rate = float(max_diff_rate)/100

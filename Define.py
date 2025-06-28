@@ -14,6 +14,7 @@ transfer_done_file = os.path.join(log_path, "transfer_done.txt")
 
 exchange_file_path = os.path.join(root_path, "code", "ini", "exchange.json")
 transfer_info_path = os.path.join(root_path, "code", "ini", "transfer.json")
+balance_info_path = os.path.join(root_path, "code", "ini", "balance.json")
 class SERVICE_NAME(Enum):
     """
     Enum for service names.

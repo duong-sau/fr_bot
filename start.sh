@@ -16,3 +16,5 @@ screen -S main_screen -X stuff "python AssetControl/Asset_Process.py\n"
 screen -dmS discord_screen
 screen -S discord_screen -X stuff "source linux_env/bin/activate\n"
 screen -S discord_screen -X stuff "python Discord.py /home/ubuntu/fr_bot/logs/asset/syslog.log\n"
+
+screen -r main_screen

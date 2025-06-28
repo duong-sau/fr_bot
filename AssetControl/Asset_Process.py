@@ -16,6 +16,7 @@ from Tracker.BinanceTracker import BinanceTracker
 from Tracker.BitgetTracker import BitgetTracker
 from AssetControl.Console import draw_positions_table
 from Config import NULL
+from Config import max_diff_rate
 start_time = time.time()
 
 def asset_control_log(message):
@@ -54,7 +55,7 @@ def end_cruses(stdscr):
 
 class AssetProcess:
 
-    MIN_ASSET_DIFF = 0.05
+    MIN_ASSET_DIFF = max_diff_rate
 
     def __init__(self, binance_tracker, bitget_tracker):
         self.binance_tracker = binance_tracker

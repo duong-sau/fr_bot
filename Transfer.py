@@ -163,7 +163,7 @@ def transfer_spot_to_swap(exchange, amount):
         tunel_log(transfer)
     elif exchange == EXCHANGE.GATE:
         # unified account
-        tunel_log("Bitget is unified account, no need to transfer from spot to swap.")
+        tunel_log("Gate is unified account, no need to transfer from spot to swap.")
     elif exchange == EXCHANGE.BITGET_SUB:
         transfer = transfer_from_bitget_main_to_sub(code='USDT', amount=amount, fromAccount='spot', toAccount='swap')
         tunel_log(transfer)
