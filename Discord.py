@@ -20,7 +20,7 @@ def push_notification(message):
 
 if __name__ == '__main__':
 
-    with open('ini/Config.json', 'r', encoding='utf-8') as config_file:
+    with open('settings/binance_bitget_ini/Config.json', 'r', encoding='utf-8') as config_file:
         config = json.load(config_file)
     webhook_url = config['discord'].get('webhook', '')
     server_url = config['alive_server'].get('url', '')

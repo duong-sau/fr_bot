@@ -2,6 +2,9 @@ import ccxt
 
 import Config
 
+from Define import exchange1, exchange2
+Config.load_config(exchange1, exchange2)
+
 binance_exchange = ccxt.binanceusdm({
     'apiKey': Config.binance_api_key,
     'secret': Config.binance_api_secret,
@@ -23,10 +26,10 @@ gate_exchange = ccxt.gateio({
 })
 gate_exchange.options['defaultType'] = 'swap'
 
-okx_exchange = ccxt.okx({
-    'apiKey': Config.okx_api_key,
-    'secret': Config.okx_api_secret,
-    'password': Config.okx_password,
-    'enableRateLimit': True,
-})
-okx_exchange.options['defaultType'] = 'swap'
+# okx_exchange = ccxt.okx({
+#     'apiKey': Config.okx_api_key,
+#     'secret': Config.okx_api_secret,
+#     'password': Config.okx_password,
+#     'enableRateLimit': True,
+# })
+# okx_exchange.options['defaultType'] = 'swap'

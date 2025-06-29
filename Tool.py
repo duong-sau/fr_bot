@@ -11,10 +11,10 @@ def step(messages=["Running..."]):
         current_step = 0
 
     clear_lines = "\033[K" * len(messages)  # Xóa tất cả các dòng cũ
-    move_cursor_up = f"\033[{len(messages)}A"  # Đưa con trỏ lên trên
+    move_cursor_up = f"\033[{len(messages) + 1}A"  # Đưa con trỏ lên trên
 
     output = "\n".join(f"{msg}" for msg in messages) + f"\n{bar[current_step]}..."
-    print(f"{clear_lines}{output}{move_cursor_up}\r", end='', flush=True)
+    print(f"{clear_lines}\n{output}{move_cursor_up}\r", end='', flush=True)
 
 def clear_console():
     """
@@ -48,3 +48,8 @@ def write_log(message, filename):
     with open(filename, 'a') as f:
         f.write(f"{timestamp} - {message}\n")
     # DONE
+
+def check_config_empty_by_error(fields):
+    for field in fields:
+        if not field:
+            raise ValueError(f"Missing configuration for {field}")

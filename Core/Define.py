@@ -8,6 +8,35 @@ class EXCHANGE(Enum):
     OKX = "OKX"
     GATE = "GATE"
 
+def convert_exchange_name_to_exchange(exchange_name):
+    """
+    Convert exchange name to exchange object.
+    """
+    if exchange_name == 'binance':
+        return EXCHANGE.BINANCE
+    elif exchange_name == 'bitget':
+        return EXCHANGE.BITGET
+    elif exchange_name == 'bitget_sub':
+        return EXCHANGE.BITGET_SUB
+    elif exchange_name == 'gate':
+        return EXCHANGE.GATE
+    else:
+        raise ValueError(f"Invalid exchange name: {exchange_name}")
+
+def convert_exchange_to_name(exchange):
+    """
+    Convert exchange object to exchange name.
+    """
+    if exchange == EXCHANGE.BINANCE:
+        return 'binance'
+    elif exchange == EXCHANGE.BITGET:
+        return 'bitget'
+    elif exchange == EXCHANGE.BITGET_SUB:
+        return 'bitget_sub'
+    elif exchange == EXCHANGE.GATE:
+        return 'gate'
+    else:
+        raise ValueError(f"Invalid exchange: {exchange}")
 
 class PositionSide(Enum):
     LONG = "LONG"

@@ -8,6 +8,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
 
+from AssetControl.BalanceConfig import max_diff_rate
+from Tracker.GateIOTracker import GateIOTracker
+import Define
+from Core.Define import EXCHANGE, convert_exchange_to_name
 from Console_.DebugWindow import CursesStream
 from Core.AliveServiceClient import AliveServiceClient
 from Define import asset_log_path, transfer_done_file, SERVICE_NAME
@@ -15,8 +19,7 @@ from Tool import write_log, step, clear_console
 from Tracker.BinanceTracker import BinanceTracker
 from Tracker.BitgetTracker import BitgetTracker
 from AssetControl.Console import draw_positions_table
-from Config import NULL
-from Config import max_diff_rate
+from Config import load_config
 start_time = time.time()
 
 def asset_control_log(message):
@@ -77,20 +80,14 @@ class AssetProcess:
 
         asset_control_log(f"Transfer {amount} USDT from {from_exchange} to {to_exchange}")
         # script_path = os.path.abspath("AssetControl/Transfer.py")
-        script_path = "Transfer.py"
-        # subprocess.Popen(
-        #     ['python3', script_path, from_exchange, to_exchange, str(amount)],
-        #     stdout=subprocess.DEVNULL,  # Không kế thừa stdout
-        #     stderr=subprocess.DEVNULL,  # Không kế thừa stderr
-        #     stdin=subprocess.DEVNULL,  # Không kế thừa stdin
-        #     close_fds=True  # Đóng các file descriptor không cần thiết (Unix)
-        # )
+        script_path = "Transfer/Transfer.py"
         venv_python = sys.executable
         self.process = subprocess.Popen(
-            [venv_python, script_path, from_exchange, to_exchange, str(amount)],
+            [venv_python, script_path, from_exchange, to_exchange, sys.argv[3], str(amount)],
             stdout=subprocess.PIPE,  # Không kế thừa stdout
             stderr=subprocess.PIPE,  # Không kế thừa stderr
         )
+
 
     def check_transfer_status(self):
         """
@@ -132,9 +129,10 @@ class AssetProcess:
                 if move_amount == 0:
                     raise ValueError("The difference is too small to transfer, please check your balances.")
                 if binance_asset_info.total_margin_balance > bitget_asset_info.total_margin_balance:
-                    self.transfer('binance', 'bitget', move_amount)
+
+                    self.transfer(convert_exchange_to_name(exchange1), convert_exchange_to_name(exchange2), move_amount)
                 else:
-                    self.transfer('bitget', 'binance', move_amount)
+                    self.transfer(convert_exchange_to_name(exchange2), convert_exchange_to_name(exchange1), move_amount)
 
         if self.in_transfer:
             self.check_transfer_status()
@@ -152,19 +150,33 @@ if __name__ == '__main__':
         stdscr = start_cruses()
     else:
         clear_console()
-    # stdscr = None
-    venv_python = sys.executable
-    # log_file = os.path.join(asset_log_path, f"{time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(start_time))}.log")
-    # subprocess.Popen(
-    #     [venv_python, "Discord.py", log_file],
-    #     stdout=subprocess.PIPE,  # Không kế thừa stdout
-    #     stderr=subprocess.PIPE,  # Không kế thừa stderr
-    # )
+
+    exchange1 = Define.exchange1
+    exchange2 = Define.exchange2
+    load_config(exchange1, exchange2)
+
     asset_control_log("Starting asset balance process...")
 
-    binance_tracker = BinanceTracker()
-    bitget_tracker = BitgetTracker()
-    asset_process = AssetProcess(binance_tracker, bitget_tracker)
+    exchange1_tracker = None
+    if exchange1 == EXCHANGE.BINANCE:
+        exchange1_tracker = BinanceTracker()
+    elif exchange1 == EXCHANGE.BITGET:
+        exchange1_tracker = BitgetTracker()
+    elif exchange1 == EXCHANGE.GATE:
+        exchange1_tracker = GateIOTracker()
+
+    exchange2_tracker = None
+    if exchange2 == EXCHANGE.BINANCE:
+        exchange2_tracker = BinanceTracker()
+    elif exchange2 == EXCHANGE.BITGET:
+        exchange2_tracker = BitgetTracker()
+    elif exchange2 == EXCHANGE.GATE:
+        exchange2_tracker = GateIOTracker()
+    if exchange1_tracker is None or exchange2_tracker is None:
+        asset_control_log(f"Invalid exchanges: {exchange1}, {exchange2}. Must be one of ['binance', 'bitget', 'gate']")
+        sys.exit(1)
+
+    asset_process = AssetProcess(exchange1_tracker, exchange2_tracker)
 
     alive_service_client = AliveServiceClient(SERVICE_NAME.ASSET_CONTROL.value)
 
