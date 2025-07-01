@@ -200,6 +200,7 @@ def write_transfer_status(bOk):
             f.write('ERROR\n')
 
 if __name__ == '__main__':
+
     if len(sys.argv) < 4:
         print("Usage: python Transfer.py <from_exchange> <to_exchange> <setting_file> <amount>")
         sys.exit(1)
