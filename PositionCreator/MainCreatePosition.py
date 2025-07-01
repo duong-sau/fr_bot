@@ -47,7 +47,7 @@ async def calculate_spreads(symbols):
 async def main():
     # symbols = ["VVV/USDT", "BADGER/USDT", "NC/USDT","H/USDT","VELO/USDT","LEVER/USDT", "T/USDT", "DEEP/USDT", "COW/USDT", "GUN/USDT", "AGI/USDT", "BB/USDT", "WAXP/USDT", "ROAM/USDT", "KERNEL/USDT",
     # symbols = ["SUN/USDT", "PLUME/USDT", "PFVS/USDT", "LISTA/USDT", "ELX/USDT", "BLAST/USDT", "TOSHI/USDT", "SPX/USDT", "BMT/USDT", "RSS3/USDT"]
-    symbols = ["SAHARA/USDT", "BMT/USDT", "PFVS/USDT", "NC/USDT", "NEWT/USDT", "MASK/USDT", "PRCL/USDT", "RARE/USDT", "AERGO/USDT", "FUN/USDT", "STO/USDT", "HIFI/USDT", "LOKA/USDT"]
+    symbols = ["H/USDT", "SNT/USDT", "ZRC/USDT", "AERGO/USDT", "F/USDT", "VOXEL/USDT", "SQD/USDT", "ALPINE/USDT"]
 
     # Tạo instance của ccxt
     bitget_exchange = ccxt.pro.bitget({'options': {'defaultType': 'swap'}})

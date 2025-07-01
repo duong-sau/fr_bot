@@ -6,7 +6,7 @@ from Tracker.Tracker import AccountBalance
 
 class GateIOTracker:
     def __init__(self):
-       self.client = Exchange.binance_exchange
+       self.client = Exchange.gate_exchange
 
     def get_open_positions(self):
         """
@@ -30,12 +30,12 @@ class GateIOTracker:
         :return:
         """
         account_info = self.client.fetchBalance()
-        info = account_info['info']
-        total_margin_balance = float(info['margin_balance'])
-        total_initial_margin = float(info['initial_margin'])
-        total_maint_margin = float(info['maint_margin'])
-        available_balance = float(info['available_balance'])
-        unrealized_pnl = float(info['unrealized_pnl'])
+        info = account_info['info'][0]
+        total_margin_balance = float(info['available']) + float(info['position_initial_margin'])
+        total_initial_margin = float(info['position_initial_margin'])
+        total_maint_margin = float(info['maintenance_margin'])
+        available_balance = float(info['available'])
+        unrealized_pnl = float(info['unrealised_pnl'])
 
         account_balance = AccountBalance(total_margin_balance,
                                          total_initial_margin,

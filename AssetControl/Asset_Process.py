@@ -107,7 +107,6 @@ class AssetProcess:
             else:
                 return False
 
-
     def tick(self):
         binance_asset_info = self.binance_tracker.get_cross_margin_account_info()
         bitget_asset_info = self.bitget_tracker.get_cross_margin_account_info()
@@ -172,6 +171,8 @@ if __name__ == '__main__':
         exchange2_tracker = BitgetTracker()
     elif exchange2 == EXCHANGE.GATE:
         exchange2_tracker = GateIOTracker()
+
+
     if exchange1_tracker is None or exchange2_tracker is None:
         asset_control_log(f"Invalid exchanges: {exchange1}, {exchange2}. Must be one of ['binance', 'bitget', 'gate']")
         sys.exit(1)

@@ -8,8 +8,11 @@ from Tracker.Tracker import AccountBalance
 
 class BitgetTracker:
 
-    def __init__(self):
-        self.client = Exchange.bitget_exchange
+    def __init__(self, sub_account=False):
+        if sub_account:
+            self.client = Exchange.bitget_sub_exchange
+        else:
+            self.client = Exchange.bitget_exchange
     def get_open_positions(self):
         """
         Get all currently open positions on BitGet Futures.

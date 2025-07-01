@@ -53,13 +53,16 @@ def with_draw_from_spot(f_exchange, t_exchange, amount):
         tunel_log(withdraw)
         return withdraw['id']
 
-    elif f_exchange == EXCHANGE.GATE and t_exchange == EXCHANGE.BITGET_SUB:
+    elif f_exchange == EXCHANGE.GATE and t_exchange == EXCHANGE.BITGET:
         withdraw = gate.withdraw(code='USDT', amount=amount, address=transfer_config.bitget_deposit_info['address'],
                                  params={'chain': transfer_config.bitget_deposit_info['chain'], 'network': transfer_config.bitget_deposit_info['network']})
         tunel_log(withdraw)
         return withdraw['id']
 
-    elif f_exchange == EXCHANGE.BITGET_SUB and t_exchange == EXCHANGE.GATE:
+    elif f_exchange == EXCHANGE.BITGET and t_exchange == EXCHANGE.GATE:
+        print(f"network: {transfer_config.gate_deposit_info['network']}")
+        print(f"chain: {transfer_config.gate_deposit_info['chain']}")
+        print(f"address: {transfer_config.gate_deposit_info['address']}")
         withdraw = bitget.withdraw(code='USDT', amount=amount, address=transfer_config.gate_deposit_info['address'],
                                    params={'chain': transfer_config.gate_deposit_info['chain'], 'network': transfer_config.gate_deposit_info['network']})
         tunel_log(withdraw)
@@ -176,7 +179,7 @@ def transfer_tunel(from_exchange, to_exchange, amount):
         client_id = try_this(with_draw_from_spot, params={'f_exchange': from_exchange,'t_exchange':to_exchange,  'amount': amount}, log_func=tunel_log, retries=5, delay=5)
 
         # deposit to spot
-        time.sleep(30)
+        time.sleep(20)
         txid = try_this(get_withdrawal_txid, params={'exchange': from_exchange, 'order_id': client_id}, log_func=tunel_log, retries=30, delay=10)
         try_this(wait_for_desposit, params={'exchange': to_exchange, 'txid': txid}, log_func=tunel_log, retries=30, delay=10)
 

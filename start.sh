@@ -11,7 +11,7 @@ mkdir -p /home/ubuntu/$BOT_NAME/{data,logs}
 
 screen -dmS main_screen
 screen -S main_screen -X stuff "source linux_env/bin/activate\n"
-screen -S main_screen -X stuff "python AssetControl/Asset_Process.py\n"
+screen -S main_screen -X stuff "python AssetControl/Asset_Process.py binance bitget settings/binance_bitget.txt\n"
 
 screen -dmS discord_screen
 screen -S discord_screen -X stuff "source linux_env/bin/activate\n"
