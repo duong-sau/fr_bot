@@ -44,6 +44,8 @@ else:
 log_path = os.path.join(root_path, "logs")
 tunel_log_path = os.path.join(log_path, "tunel")
 asset_log_path = os.path.join(log_path, "asset")
+adl_log_path = os.path.join(log_path, "adl.txt")
+tp_sl_log_path = os.path.join(log_path, "tpsl.txt")
 
 transfer_done_file = os.path.join(log_path, "transfer_done.txt")
 

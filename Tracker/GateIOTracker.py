@@ -19,7 +19,7 @@ class GateIOTracker:
         for pos in positions_json:
             symbol = pos['info']['contract'].replace('_', '')
             side = PositionSide.LONG if pos['side'].upper() == 'LONG' else PositionSide.SHORT
-            margin = float(pos['initialMargin']) if 'initialMargin' in pos else 1.0  # Default to 1.0 if not available
+            margin = float(pos['maintenanceMargin']) if 'maintenanceMargin' in pos else 1.0  # Default to 1.0 if not available
             position = Position(symbol=symbol, side=side, amount=float(pos['contracts']),
                                 entry_price=float(pos['entryPrice']), exchange=EXCHANGE.GATE, margin=margin)
             positions.append(position)

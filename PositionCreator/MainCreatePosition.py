@@ -6,7 +6,7 @@ last_prices = {}
 def convert_symbol(exchange, symbol):
     if exchange == "bitget":
         return symbol.replace("/", "")  # Chuyển BTC/USDT -> BTCUSDT
-    elif exchange == "gateio":
+    elif exchange == "gate":
         return symbol.replace("/", "_")  # Chuyển BTC/USDT -> BTC_USDT
     elif exchange == "binance":
         return symbol.replace("/", "")
@@ -50,11 +50,11 @@ async def main():
     # symbols = ["VVV/USDT", "BADGER/USDT", "NC/USDT","H/USDT","VELO/USDT","LEVER/USDT", "T/USDT", "DEEP/USDT", "COW/USDT", "GUN/USDT", "AGI/USDT", "BB/USDT", "WAXP/USDT", "ROAM/USDT", "KERNEL/USDT",
     # symbols = ["SUN/USDT", "PLUME/USDT", "PFVS/USDT", "LISTA/USDT", "ELX/USDT", "BLAST/USDT", "TOSHI/USDT", "SPX/USDT", "BMT/USDT", "RSS3/USDT"]
     # symbols = ["H/USDT", "SNT/USDT", "ZRC/USDT", "AERGO/USDT", "F/USDT", "VOXEL/USDT", "SQD/USDT", "ALPINE/USDT"]
-    symbols = ["NEWT/USDT", "PLUME/USDT", "UMA/USDT", "PARTI/USDT", "BMT/USDT", "ATH/USDT", "SXP/USDT", "SPX/USDT"]
+    symbols = ["SPX/USDT", "H/USDT", "MASK/USDT", "NEWT/USDT", "PORT3/USDT", "BMT/USDT", "RVN/USDT", "HIFI/USDT", "KERNEL/USDT", "SXP/USDT", "F/USDT", "LOKA/USDT", "DUCK/USDT", "DBR/USDT"]
 
     # Tạo instance của ccxt
     bitget_exchange = ccxt.pro.bitget({'options': {'defaultType': 'swap'}})
-    gate_exchange = ccxt.pro.binanceusdm({'options': {'defaultType': 'swap'}})
+    gate_exchange = ccxt.pro.gateio({'options': {'defaultType': 'swap'}})
 
     global last_prices
     last_prices = {symbol: {'bid': None, 'ask': None} for symbol in symbols}
@@ -62,7 +62,7 @@ async def main():
     tasks = []
     for symbol in symbols:
         tasks.append(fetch_order_book(bitget_exchange, "bitget", symbol, "BID"))
-        tasks.append(fetch_order_book(gate_exchange, "binance", symbol, "ASK"))
+        tasks.append(fetch_order_book(gate_exchange, "gate", symbol, "ASK"))
 
     tasks.append(calculate_spreads(symbols))
 

@@ -1,5 +1,5 @@
 import ccxt
-
+import ccxt.pro
 import Config
 
 from Define import exchange1, exchange2
@@ -26,10 +26,18 @@ gate_exchange = ccxt.gateio({
 })
 gate_exchange.options['defaultType'] = 'swap'
 
-# okx_exchange = ccxt.okx({
-#     'apiKey': Config.okx_api_key,
-#     'secret': Config.okx_api_secret,
-#     'password': Config.okx_password,
-#     'enableRateLimit': True,
-# })
-# okx_exchange.options['defaultType'] = 'swap'
+bitget_pro = ccxt.pro.bitget({
+    'apiKey': Config.bitget_api_key,
+    'secret': Config.bitget_api_secret,
+    'password': Config.bitget_password,
+    'options': {'defaultType': 'swap'}
+})
+gate_pro = ccxt.pro.gateio({
+    'apiKey': Config.gate_api_key,
+    'secret': Config.gate_api_secret,
+    'uid': "22397301",
+    'enableRateLimit': True,
+    'options': {
+        'defaultType': 'swap'
+    }
+})

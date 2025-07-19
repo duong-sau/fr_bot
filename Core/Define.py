@@ -37,6 +37,14 @@ def convert_exchange_to_name(exchange):
         return 'gate'
     else:
         raise ValueError(f"Invalid exchange: {exchange}")
+def convert_symbol(exchange, symbol):
+    if exchange == "bitget":
+        return symbol.replace("/", "")  # Chuyển BTC/USDT -> BTCUSDT
+    elif exchange == "gate":
+        return symbol.replace("/", "/")  # Chuyển BTC/USDT -> BTC_USDT
+    elif exchange == "binance":
+        return symbol.replace("/", "")
+    return symbol
 
 class PositionSide(Enum):
     LONG = "LONG"
