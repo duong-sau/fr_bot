@@ -1,21 +1,17 @@
 import sys
-import curses
 import threading
 import time
-import ccxt
 import os
-
-import requests
 from ccxt import ExchangeError
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
 
 from ADLControl.Order import open_take_profit_bitget, open_stop_loss_bitget, open_take_profit_gate, open_stop_loss_gate
 from Define import tp_sl_log_path
 from Exchange.Exchange import bitget_exchange, gate_exchange
 from Tool import try_this, write_log
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
 
 def tp_sl_log(message):
     sys_log = tp_sl_log_path

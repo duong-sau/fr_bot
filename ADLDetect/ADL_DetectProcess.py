@@ -1,9 +1,13 @@
 import os
 import sys
 import time
-
 from ccxt import ExchangeError
 import asyncio
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
+
 import Exchange.Exchange
 from Define import adl_log_path
 from Tool import try_this, write_log
