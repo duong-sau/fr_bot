@@ -186,7 +186,7 @@ if __name__ == '__main__':
         while True:
 
             # Alive ping
-            alive_service_client.tick()
+            # alive_service_client.tick()
 
             # Main process loop
             try:
