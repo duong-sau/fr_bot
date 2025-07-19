@@ -150,7 +150,4 @@ async def main():
 
 
 if __name__ == '__main__':
-    pos = bitget_exchange.fetch_position('NEWT/USDT:USDT')
-    print(pos)
-    exit(0)
     asyncio.run(main())
