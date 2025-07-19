@@ -50,18 +50,17 @@ def close_position_bitget(symbol, hold_side, diff):
 
 
 def check_position_change(symbol):
-
     bitget_position = bitget_exchange.fetch_position(symbol)
     adl_log(f"Current position: {bitget_position}")
     if bitget_position['side'] is None:
         bitget_total = 0
     else:
-        bitget_total = float(bitget_position['info']['total'])
+        bitget_total = float(bitget_position['contracts']) * float(bitget_position['contractSize'])
 
     try:
         gate_position = gate_exchange.fetch_position(symbol)
         adl_log(f"Current position: {gate_position}")
-        gate_total = float(gate_position['info']['size'])
+        gate_total = float(gate_position['contracts']) * float(gate_position['contractSize'])
     except ExchangeError as e:
         adl_log(f"HTTP error occurred: {e}")
         if "POSITION_NOT_FOUND" in str(e.args[0]):
@@ -151,4 +150,7 @@ async def main():
 
 
 if __name__ == '__main__':
+    pos = bitget_exchange.fetch_position('NEWT/USDT:USDT')
+    print(pos)
+    exit(0)
     asyncio.run(main())
