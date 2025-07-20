@@ -151,9 +151,6 @@ async def main():
     )
 
 
-# if __name__ == '__main__':
-#     asyncio.run(main())
-
 if __name__ == '__main__':
-    bitget_position = gate_exchange.fetch_position('FUN/USDT:USDT')
-    print(bitget_position)
+    asyncio.run(main())
+
