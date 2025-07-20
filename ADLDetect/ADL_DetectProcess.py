@@ -82,11 +82,13 @@ def check_position_change(symbol):
     if gate_total > bitget_total:
         diff = gate_total - bitget_total
         adl_log(f"Gate has more position: {diff} {symbol}")
-        close_position_gate(symbol, gate_side, diff)
+        diff_contras = diff / float(gate_position['contractSize'])
+        close_position_gate(symbol, gate_side, diff_contras)
     elif bitget_total > gate_total:
         diff = bitget_total - gate_total
         adl_log(f"Bitget has more position: {diff} {symbol}")
-        close_position_bitget(symbol, bitget_side, diff)
+        diff_contras = diff / float(bitget_position['contractSize'])
+        close_position_bitget(symbol, bitget_side, diff_contras)
 
 lock = asyncio.Lock()
 positions = {}
@@ -149,5 +151,9 @@ async def main():
     )
 
 
+# if __name__ == '__main__':
+#     asyncio.run(main())
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    bitget_position = gate_exchange.fetch_position('FUN/USDT:USDT')
+    print(bitget_position)
