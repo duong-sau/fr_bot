@@ -5,7 +5,7 @@ screen -ls | grep -o '[0-9]*\.' | sed 's/\.//' | xargs -I {} screen -S {} -X qui
 BOT_NAME="fr_bot"
 
 cd /home/ubuntu/$BOT_NAME/code
-dos2unix ini/*
+dos2unix settings/*
 mkdir -p /home/ubuntu/$BOT_NAME/{data,logs}
 # sudo mount -t tmpfs -o size=32M tmpfs /home/ubuntu/$BOT_NAME/data
 
@@ -16,5 +16,13 @@ screen -S main_screen -X stuff "python AssetControl/Asset_Process.py bitget gate
 screen -dmS discord_screen
 screen -S discord_screen -X stuff "source linux_env/bin/activate\n"
 screen -S discord_screen -X stuff "python Discord.py /home/ubuntu/fr_bot/logs/asset/syslog.log\n"
+
+screen -dmS tp_sl_screen
+screen -S tp_sl_screen -X stuff "source linux_env/bin/activate\n"
+screen -S tp_sl_screen -X stuff "python ADLControl/ADL_Process.py bitget gate settings/bitget_gate.txt\n"
+
+screen -dmS adl_screen
+screen -S adl_screen -X stuff "source linux_env/bin/activate\n"
+screen -S adl_screen -X stuff "python ADLDetect/ADL_DetectProcess.py bitget gate settings/bitget_gate.txt\n"
 
 screen -r main_screen

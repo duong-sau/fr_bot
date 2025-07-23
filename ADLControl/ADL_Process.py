@@ -74,13 +74,13 @@ def auto_tp_sl(bitget, gate, symbol, tp_rate, sl_rate):
         time.sleep(180)  # Sleep for 2 minutes before checking again
 if __name__ == '__main__':
 
-    symbols = ["APE", "KAS", "VOXEL", "RVN", "FUN", "F", "SAHARA", "SXP", "NEWT"]
+    symbols = ["APE", "KAS", "VOXEL", "RVN", "FUN", "F", "SAHARA", "SXP", "NEWT" ,  "DIA"]
 
     bitget =bitget_exchange
     gate = gate_exchange
 
-    tp_rate = 0.08  #
-    sl_rate = 0.08
+    tp_rate = 0.05  #
+    sl_rate = 0.05
 
     interval = 300 # 5 minutes
 

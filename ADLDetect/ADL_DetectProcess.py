@@ -144,7 +144,7 @@ async def sync_hedge(exchange, symbols):
 
 
 async def main():
-    symbols = ["APE/USDT:USDT", "KAS/USDT:USDT", "VOXEL/USDT:USDT", "RVN/USDT:USDT", "FUN/USDT:USDT", "F/USDT:USDT", "SAHARA/USDT:USDT", "SXP/USDT:USDT", "NEWT/USDT:USDT"]
+    symbols = [ "DIA/USDT:USDT", "APE/USDT:USDT", "KAS/USDT:USDT", "VOXEL/USDT:USDT", "RVN/USDT:USDT", "FUN/USDT:USDT", "F/USDT:USDT", "SAHARA/USDT:USDT", "SXP/USDT:USDT", "NEWT/USDT:USDT"]
     await asyncio.gather(
         sync_hedge(gate_pro, symbols),
         sync_hedge(bitget_pro, symbols),
