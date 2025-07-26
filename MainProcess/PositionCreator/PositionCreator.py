@@ -4,12 +4,11 @@ import time
 import ccxt
 
 from Core.Tool import push_notification
-
-root_path = "C:\\job\\dim\\FrAbitrage\\"
+from Define import root_path
 
 symbols = []
 
-file = open(f"{root_path}/_settings/futures_symbols.txt", 'r', encoding='utf-8')
+file = open(f"{root_path}/code/_settings/futures_symbols.txt", 'r', encoding='utf-8')
 lines = file.readlines()
 for line in lines:
     symbols.append(line.strip())
@@ -62,20 +61,25 @@ async def fetch_all_funding_rates(symbols):
             fetch_funding_rate(gate, symbol, "gate")
             fetch_funding_rate(bitget, symbol, "bitget")
             print(f"Updated funding rate for symbol :{symbol}", f"rate: {rates[symbol]}")
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(1)
 
 potential_symbols = []
 
 def entry_potential(symbol):
-    with open(f"{root_path}/_data/futures_symbols.txt", 'w', encoding='utf-8') as f:
+    with open(f"{root_path}/data/futures_symbols.txt", 'w', encoding='utf-8') as f:
         f.write(str(potential_symbols))
-    import winsound
-    winsound.Beep(1000, 500)
     push_notification(f'New potetial {symbol}')
+    import subprocess
+    subprocess.Popen(
+        ['python', f'{root_path}/code/MainProcess/PositionCreator/PotentialChecker.py', symbol],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
 
 async def main():
     task  = asyncio.create_task(fetch_all_funding_rates(symbols))
-    threshold = 0.2
+    threshold_in = 0.2
+    threshold_out = 0.15
     while True:
         for symbol, rate in rates.items():
             gate_rate = rate['gate']
@@ -83,12 +87,12 @@ async def main():
 
             if gate_rate is not None and bitget_rate is not None:
                 if symbol not in potential_symbols:
-                    if bitget_rate - gate_rate > threshold:
+                    if bitget_rate - gate_rate > threshold_in:
                         potential_symbols.append(symbol)
                         entry_potential(symbol)
                         print(f"Potential arbitrage opportunity found for {symbol}: Gate Rate: {gate_rate}, Bitget Rate: {bitget_rate}")
                 else:
-                    if bitget_rate - gate_rate <= threshold:
+                    if bitget_rate - gate_rate <= threshold_out:
                         potential_symbols.remove(symbol)
                         print(f"Removed {symbol} from potential arbitrage opportunities.")
 

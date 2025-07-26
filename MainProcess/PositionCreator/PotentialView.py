@@ -26,8 +26,9 @@ async def fetch_order_book(exchange, exchange_name, symbol, side):
     except Exception as e:
         print(f"Error for {symbol}: {e}")
 
+spreads = []
 async def calculate_spreads(symbols):
-
+    count = 0
     while True:
         print("\033[2J\033[H", end='')
         print(f"{'Symbol':<15} {'BID':<15} {'ASK':<15} {'SPREAD (%)':<10}")
@@ -41,6 +42,7 @@ async def calculate_spreads(symbols):
 
             spread = bid - ask if bid is not None and ask is not None else 0
             spread_percent = (spread / bid * 100) if bid else 0
+            spreads.append(spread_percent)
 
             print(f"{symbol:<15} {bid_display:<15} {ask_display:<15} {round(spread_percent, 5):<10}")
         print("\n" + "=" * 50)

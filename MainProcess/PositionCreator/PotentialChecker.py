@@ -3,6 +3,8 @@ import sys
 import ccxt.pro
 import asyncio
 
+from Core.Tool import push_notification
+
 last_prices = {}
 
 
@@ -29,24 +31,23 @@ async def fetch_order_book(exchange, exchange_name, symbol, side):
                 last_prices[symbol]['ask'] = order_book['asks'][0][0]  # Giá ask
     except Exception as e:
         print(f"Error for {symbol}: {e}")
-
+spreads = []
 async def calculate_spreads(symbol):
-
-    threshold = 0
+    count = 0
     while True:
         bid = last_prices[symbol]['bid']
         ask = last_prices[symbol]['ask']
         spread = bid - ask if bid is not None and ask is not None else 0
         spread_percent = (spread / bid * 100) if bid else 0
-        if spread_percent > threshold:
-            import winsound
-            winsound.Beep(1000, 500)
-            print(f"Spread alert for {symbol}: {round(spread_percent, 5)}%")
-            sys.exit(0)
+        spreads.append(spread_percent)
+        count += 1
 
-        # print(f"{symbol:<15} {bid_display:<15} {ask_display:<15} {round(spread_percent, 5):<10}")
-        # print("\n" + "=" * 50)
+        if count >= 300:
+            break
         await asyncio.sleep(0.1)
+    mean_spread = sum(spreads) / len(spreads) if spreads else 0
+    push_notification(f"Spread for {symbol}: {round(mean_spread, 5)}%")
+    sys.exit(0)
 
 async def main():
 
