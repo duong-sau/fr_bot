@@ -50,7 +50,7 @@ class AssetProcess:
         script_path = f"{root_path}/MainProcess/AssetControl/Transfer/Transfer.py"
         venv_python = sys.executable
         self.process = subprocess.Popen(
-            [venv_python, script_path, from_exchange, to_exchange, sys.argv[3], str(amount)],
+            [venv_python, script_path, from_exchange, to_exchange, str(amount)],
             stdout=subprocess.PIPE,  # Không kế thừa stdout
             stderr=subprocess.PIPE,  # Không kế thừa stderr
         )

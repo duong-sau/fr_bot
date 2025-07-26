@@ -1,21 +1,18 @@
 import os.path
 import sys
 import time
-
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
+from Core.Exchange.Exchange import ExchangeManager
 from TransferConfig import TransferConfig
 from Core.Define import EXCHANGE
-from Define import tunel_log_path, transfer_done_file
-from Core.Exchange.Exchange import gate_exchange, bitget_exchange, binance_exchange
+from Define import tunel_log_path, transfer_done_file, exchange2, exchange1
 from Core.Tool import try_this, write_log
-from SubTransfer import transfer_from_bitget_main_to_sub
 
-bitget = bitget_exchange
-binance = binance_exchange
-gate = gate_exchange
+
+exchange_manager = ExchangeManager(exchange1, exchange2)
+bitget = exchange_manager.bitget_exchange
+binance = exchange_manager.binance_exchange
+gate = exchange_manager.gate_exchange
 
 start_time = time.time()
 
@@ -33,9 +30,6 @@ def transfer_swap_to_spot(exchange, amount):
     elif exchange == EXCHANGE.GATE:
         # unified account
         tunel_log("Gate is unified account, no need to transfer from swap to spot.")
-    elif exchange == EXCHANGE.BITGET_SUB:
-        transfer = transfer_from_bitget_main_to_sub(code='USDT', amount=amount, fromAccount='swap', toAccount='spot')
-        tunel_log(transfer)
     else:
         raise ValueError("Unsupported exchange for transfer to spot account.")
 
@@ -154,9 +148,6 @@ def transfer_spot_to_swap(exchange, amount):
     elif exchange == EXCHANGE.GATE:
         # unified account
         tunel_log("Gate is unified account, no need to transfer from spot to swap.")
-    elif exchange == EXCHANGE.BITGET_SUB:
-        transfer = transfer_from_bitget_main_to_sub(code='USDT', amount=amount, fromAccount='spot', toAccount='swap')
-        tunel_log(transfer)
     else:
         raise ValueError("Unsupported exchange for transfer to swap account.")
 
@@ -201,8 +192,8 @@ def write_transfer_status(bOk):
 
 if __name__ == '__main__':
 
-    if len(sys.argv) < 4:
-        print("Usage: python Transfer.py <from_exchange> <to_exchange> <setting_file> <amount>")
+    if len(sys.argv) < 3:
+        print("Usage: python Transfer.py <from_exchange> <to_exchange> <amount>")
         sys.exit(1)
     f_exchange = sys.argv[1]
     if f_exchange == 'binance':
@@ -228,5 +219,5 @@ if __name__ == '__main__':
     else:
         raise ValueError("Unsupported exchange. Use 'binance' or 'bitget'.")
     transfer_config = TransferConfig(from_exchange=from_exchange, to_exchange=to_exchange)
-    amount = float(sys.argv[4])
+    amount = float(sys.argv[3])
     transfer_tunel(from_exchange, to_exchange, amount)
