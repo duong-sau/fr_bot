@@ -5,7 +5,9 @@ from Core.StopTimer import StopTimer
 import json
 import os
 
-config_path = os.path.join(os.path.dirname(__file__), '../_settings',"binance_bitget_ini", 'config.json')
+from Define import discord_config_path
+
+config_path = os.path.join(discord_config_path)
 with open(config_path, 'r') as f:
     config = json.load(f)
 server_url = config['alive_server']['url']

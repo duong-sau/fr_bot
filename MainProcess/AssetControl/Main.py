@@ -1,25 +1,24 @@
 import os
 import subprocess
-import curses
 import sys
 import time
+
+from Core.Exchange.Exchange import ExchangeManager
+from Core.Tracker.BitgetTracker import BitgetTracker
+from Core.Tracker.GateIOTracker import GateIOTracker
+from MainProcess.AssetControl.BalanceConfig import max_diff_rate
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
 
-from AssetControl.BalanceConfig import max_diff_rate
-from MainProcess.PositionView.Tracker.GateIOTracker import GateIOTracker
+
 import Define
 from Core.Define import EXCHANGE, convert_exchange_to_name
-from Core.Console_ import CursesStream
 from Core.AliveServiceClient import AliveServiceClient
-from Define import asset_log_path, transfer_done_file, SERVICE_NAME
+from Define import asset_log_path, transfer_done_file, SERVICE_NAME, root_path
 from Core.Tool import write_log, step, clear_console
-from MainProcess.PositionView.Tracker.BinanceTracker import BinanceTracker
-from MainProcess.PositionView.Tracker.BitgetTracker import BitgetTracker
-from AssetControl.Console import draw_positions_table
-from Config import load_config
+
 start_time = time.time()
 
 def asset_control_log(message):
@@ -28,33 +27,6 @@ def asset_control_log(message):
     sys_log = os.path.join(asset_log_path, 'syslog.log')
     write_log(message, sys_log)
 
-def start_cruses():
-    stdscr = curses.initscr()  # Khởi tạo curses
-    curses.noecho()            # Tắt chế độ hiển thị phím
-    curses.cbreak()            # Bật chế độ xử lý ngay sau khi nhập
-    stdscr.keypad(True)        # Bật chế độ bàn phím nâng cao
-    curses.start_color()
-    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
-
-    std_out_height, std_out_width = 20, 80
-    start_y, start_x = 30, 0
-    output_win = curses.newwin(std_out_height, std_out_width, start_y, start_x)
-    output_win.border()
-    output_win.refresh()
-    sys.stdout = CursesStream(output_win)
-    sys.stderr = CursesStream(output_win)
-
-    return stdscr
-
-def end_cruses(stdscr):
-    curses.nocbreak()
-    stdscr.keypad(False)
-    curses.echo()
-    curses.endwin()
-
-    sys.stdout = sys.__stdout__
-    sys.stderr = sys.__stderr__
 
 class AssetProcess:
 
@@ -80,7 +52,7 @@ class AssetProcess:
 
         asset_control_log(f"Transfer {amount} USDT from {from_exchange} to {to_exchange}")
         # script_path = os.path.abspath("AssetControl/Transfer.py")
-        script_path = "Transfer/Transfer.py"
+        script_path = f"{root_path}/MainProcess/AssetControl/Transfer/Transfer.py"
         venv_python = sys.executable
         self.process = subprocess.Popen(
             [venv_python, script_path, from_exchange, to_exchange, sys.argv[3], str(amount)],
@@ -144,37 +116,29 @@ class AssetProcess:
 
 
 if __name__ == '__main__':
-    USE_CRUSES = False
-    if USE_CRUSES:
-        stdscr = start_cruses()
-    else:
-        clear_console()
+
+    clear_console()
 
     exchange1 = Define.exchange1
     exchange2 = Define.exchange2
-    load_config(exchange1, exchange2)
-
+    exchange_manager = ExchangeManager(exchange1, exchange2)
     asset_control_log("Starting asset balance process...")
 
     exchange1_tracker = None
-    if exchange1 == EXCHANGE.BINANCE:
-        exchange1_tracker = BinanceTracker()
-    elif exchange1 == EXCHANGE.BITGET:
-        exchange1_tracker = BitgetTracker()
+    if exchange1 == EXCHANGE.BITGET:
+        exchange1_tracker = BitgetTracker(exchange_manager.bitget_exchange)
     elif exchange1 == EXCHANGE.GATE:
-        exchange1_tracker = GateIOTracker()
+        exchange1_tracker = GateIOTracker(exchange_manager.gate_exchange)
 
     exchange2_tracker = None
-    if exchange2 == EXCHANGE.BINANCE:
-        exchange2_tracker = BinanceTracker()
-    elif exchange2 == EXCHANGE.BITGET:
-        exchange2_tracker = BitgetTracker()
+    if exchange2 == EXCHANGE.BITGET:
+        exchange2_tracker = BitgetTracker(exchange_manager.bitget_exchange)
     elif exchange2 == EXCHANGE.GATE:
-        exchange2_tracker = GateIOTracker()
+        exchange2_tracker = GateIOTracker(exchange_manager.gate_exchange)
 
 
     if exchange1_tracker is None or exchange2_tracker is None:
-        asset_control_log(f"Invalid exchanges: {exchange1}, {exchange2}. Must be one of ['binance', 'bitget', 'gate']")
+        asset_control_log(f"Invalid exchanges: {exchange1}, {exchange2}. Must be one of ['bitget', 'gate']")
         sys.exit(1)
 
     asset_process = AssetProcess(exchange1_tracker, exchange2_tracker)
@@ -184,11 +148,6 @@ if __name__ == '__main__':
     try:
 
         while True:
-
-            # Alive ping
-            # alive_service_client.tick()
-
-            # Main process loop
             try:
                 asset_process.tick()
             except Exception as e:
@@ -199,21 +158,15 @@ if __name__ == '__main__':
             asset = asset_process.get_asset_info()
             status = asset_process.get_status()
 
-            if USE_CRUSES:
-                draw_positions_table(stdscr, asset, status)
-            else:
-                step_string1 = f"Binance: {asset['binance'].total_margin_balance} USDT"
-                step_string2 = f"Bitget: {asset['bitget'].total_margin_balance} USDT"
-                step_string3 = f"Estimated Min Balance: {asset['estimated_min_balance']} USDT"
-                step_strings = [step_string1, step_string2, step_string3]
-                if status :
-                    step_strings.append(f"Transfer in progress")
 
-                step(step_strings)
+            step_string1 = f"Binance: {asset['binance'].total_margin_balance} USDT"
+            step_string2 = f"Bitget: {asset['bitget'].total_margin_balance} USDT"
+            step_string3 = f"Estimated Min Balance: {asset['estimated_min_balance']} USDT"
+            step_strings = [step_string1, step_string2, step_string3]
+            if status :
+                step_strings.append(f"Transfer in progress")
+
+            step(step_strings)
             time.sleep(5)
     except KeyboardInterrupt:
         asset_control_log("Process interrupted by user (Ctrl+C). Exiting...")
-
-
-    if USE_CRUSES:
-        end_cruses(stdscr)

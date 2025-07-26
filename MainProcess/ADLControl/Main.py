@@ -1,158 +1,112 @@
-import os
+import asyncio
 import sys
 import time
+
 from ccxt import ExchangeError
-import asyncio
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
-
-from Define import adl_log_path
-from Core.Tool import try_this, write_log
-
-bitget_pro = Core.Exchange.Exchange.bitget_pro
-gate_pro = Core.Exchange.Exchange.gate_pro
-
-bitget_exchange = Core.Exchange.Exchange.bitget_exchange
-gate_exchange = Core.Exchange.Exchange.gate_exchange
-
-def adl_log(message):
-    sys_log = adl_log_path
-    write_log(message, sys_log)
-
-def close_position_gate( symbol, hold_side, diff):
-    order = try_this(gate_exchange.createOrder,
-                     params={'symbol': symbol,
-                             'type': 'market',
-                             'side': 'sell' if hold_side == 'LONG' else 'buy',
-                             'amount': diff,
-                             'params': {
-                                 'reduceOnly': True,
-                                }
-                             },
-                     log_func=adl_log, retries=5, delay=2)
-    adl_log(order)
-
-def close_position_bitget(symbol, hold_side, diff):
-    order = try_this(bitget_exchange.createOrder,
-                     params={'symbol': symbol,
-                             'type': 'market',
-                             'side': 'SELL' if hold_side == 'LONG' else 'BUY',
-                             'amount': diff,
-                             'params': {
-                                 'reduceOnly': True,
-                                }
-                             },
-                     log_func=adl_log, retries=5, delay=2)
-    adl_log(order)
+from Core.Exchange.Exchange import ExchangeManager
+from Core.Tool import try_this
+from Define import exchange1, exchange2
+from MainProcess.ADLControl.Log import adl_log
+from MainProcess.ADLControl.Order import close_position_gate, close_position_bitget, fetch_position_bitget, \
+    fetch_position_gate
 
 
+class ADLController:
+    def __init__(self, exchange_manager):
 
-def check_position_change(symbol):
-    bitget_position = bitget_exchange.fetch_position(symbol)
-    print(f"Current position: {bitget_position}")
-    if bitget_position['side'] is None:
-        bitget_total = 0
-    else:
-        bitget_total = float(bitget_position['contracts']) * float(bitget_position['contractSize'])
+        self.exchangeManager = exchange_manager
 
-    try:
-        gate_position = gate_exchange.fetch_position(symbol)
-        print(f"Current position: {gate_position}")
-        gate_total = float(gate_position['contracts']) * float(gate_position['contractSize'])
-    except ExchangeError as e:
-        adl_log(f"HTTP error occurred: {e}")
-        if "POSITION_NOT_FOUND" in str(e.args[0]):
-            gate_total = 0
-        else:
-            raise e
+        self.bitget_pro = exchange_manager.bitget_pro
+        self.gate_pro = exchange_manager.gate_pro
 
-    if gate_total == 0 and bitget_total == 0:
-        return
+        self.bitget_exchange = exchange_manager.bitget_exchange
+        self.gate_exchange = exchange_manager.gate_exchange
 
-    # bitget_side = bitget_position['info']['holdSide'].upper()
-    bitget_side = "SHORT"
-    gate_side = "LONG"
+        self.lock = asyncio.Lock()
+        self.positions = {}
+        self.error_count = 0
 
-    adl_log(f"Gate total: {gate_total}, Bitget total: {bitget_total}, Symbol: {symbol}, Gate side: {gate_side}, Bitget side: {bitget_side}")
 
-    if gate_total > bitget_total:
-        diff = gate_total - bitget_total
-        adl_log(f"Gate has more position: {diff} {symbol}")
-        diff_contras = diff / float(gate_position['contractSize'])
-        close_position_gate(symbol, gate_side, diff_contras)
-    elif bitget_total > gate_total:
-        diff = bitget_total - gate_total
-        adl_log(f"Bitget has more position: {diff} {symbol}")
-        diff_contras = diff / float(bitget_position['contractSize'])
-        close_position_bitget(symbol, bitget_side, diff_contras)
+    def check_position_change(self, symbol):
+        bitget_total, bitget_side, bitget_contract_size = fetch_position_bitget(self.bitget_exchange, symbol)
+        gate_total, gate_side, gate_contract_size = fetch_position_gate(self.gate_exchange, symbol)
 
-lock = asyncio.Lock()
-positions = {}
+        if gate_total == 0 and bitget_total == 0:
+            return
 
-async def sync_hedge(exchange, symbols):
-    await exchange.load_markets()
-    adl_log(f"Listening for position changes on {exchange.id}...")
+        adl_log(f"Gate total: {gate_total}, Bitget total: {bitget_total}, Symbol: {symbol}, Gate side: {gate_side}, Bitget side: {bitget_side}")
 
-    error_count = 0
+        if gate_total > bitget_total:
+            diff = gate_total - bitget_total
+            adl_log(f"Gate has more position: {diff} {symbol}")
+            diff_contras = diff / bitget_contract_size
+            close_position_gate(symbol, gate_side, diff_contras)
+        elif bitget_total > gate_total:
+            diff = bitget_total - gate_total
+            adl_log(f"Bitget has more position: {diff} {symbol}")
+            diff_contras = diff / gate_contract_size
+            close_position_bitget(symbol, bitget_side, diff_contras)
 
-    while True:
-        try:
+    async def sync_hedge(self, exchange, symbols):
+        await exchange.load_markets()
+        adl_log(f"Listening for position changes on {exchange.id}...")
 
-            pos = await exchange.watch_positions(symbols=symbols)
-            print(pos)
-            for p in pos:
-                p_symbol = p['symbol']
-                p_size = float(p['contracts']) * float(p['contractSize'])
+        self.error_count = 0
 
-                async with lock:
-                    if p_symbol not in positions:
-                        positions[p_symbol] = {
-                            'gate_size': p_size,
-                            'bitget_size': p_size,
-                        }
-                old_bitget_size = positions[p_symbol]['bitget_size']
-                old_gate_size = positions[p_symbol]['gate_size']
+        while True:
+            try:
+                pos = await exchange.watch_positions(symbols=symbols)
+                print(pos)
+                for p in pos:
+                    p_symbol = p['symbol']
+                    p_size = float(p['contracts']) * float(p['contractSize'])
 
-                async with lock:
+                    async with self.lock:
+                        if p_symbol not in self.positions:
+                            self.positions[p_symbol] = {
+                                'gate_size': p_size,
+                                'bitget_size': p_size,
+                            }
+                    old_bitget_size = self.positions[p_symbol]['bitget_size']
+                    old_gate_size = self.positions[p_symbol]['gate_size']
+
+                    async with self.lock:
+                        if exchange.id == 'bitget':
+                            self.positions[p_symbol]['bitget_size'] = p_size
+                        elif exchange.id == 'gateio':
+                            self.positions[p_symbol]['gate_size'] = p_size
+                        else:
+                            adl_log(f"Unknown exchange id: {exchange.id}")
+                            sys.exit(1)
+
                     if exchange.id == 'bitget':
-                        positions[p_symbol]['bitget_size'] = p_size
+                        if old_bitget_size != p_size:
+                            adl_log(f"Bitget position changed for {p_symbol}: {old_bitget_size} -> {p_size}")
+                            try_this(self.check_position_change, params={'symbol': p_symbol}, log_func=adl_log, retries=5, delay=1)
+                        self.positions[p_symbol]['bitget_size'] = p_size
                     elif exchange.id == 'gateio':
-                        positions[p_symbol]['gate_size'] = p_size
+                        if old_gate_size != p_size:
+                            adl_log(f"GateIO position changed for {p_symbol}: {old_gate_size} -> {p_size}")
+                            try_this(self.check_position_change, params={'symbol': p_symbol}, log_func=adl_log, retries=5, delay=1)
                     else:
                         adl_log(f"Unknown exchange id: {exchange.id}")
                         sys.exit(1)
+                self.error_count = self.error_count - 1 if self.error_count > 1 else 0
 
-                if exchange.id == 'bitget':
-                    if  old_bitget_size != p_size:
-                        adl_log(f"Bitget position changed for {p_symbol}: {old_bitget_size} -> {p_size}")
-                        try_this(check_position_change, params={'symbol': p_symbol}, log_func=adl_log, retries=5, delay=1)
-                    positions[p_symbol]['bitget_size'] = p_size
-                elif exchange.id == 'gateio':
-                    if old_gate_size != p_size:
-                        adl_log(f"GateIO position changed for {p_symbol}: {old_gate_size} -> {p_size}")
-                        try_this(check_position_change, params={'symbol': p_symbol}, log_func=adl_log, retries=5, delay=1)
-                else:
-                    adl_log(f"Unknown exchange id: {exchange.id}")
-                    sys.exit(1)
-            error_count = error_count -1 if error_count > 1 else 0
+            except Exception as e:
+                self.error_count += 1
+                adl_log(f"Lỗi khi sync: {e}")
+                time.sleep(1)
 
-        except Exception as e:
-            error_count += 1
-            adl_log(f"Lỗi khi sync: {e}")
-            time.sleep(1)
-
-
-
-async def main():
-    symbols = [ "DIA/USDT:USDT", "APE/USDT:USDT", "KAS/USDT:USDT", "VOXEL/USDT:USDT", "RVN/USDT:USDT", "FUN/USDT:USDT", "F/USDT:USDT", "SAHARA/USDT:USDT", "SXP/USDT:USDT", "NEWT/USDT:USDT"]
-    await asyncio.gather(
-        sync_hedge(gate_pro, symbols),
-        sync_hedge(bitget_pro, symbols),
-    )
-
+    async def main(self):
+        symbols = [ "DIA/USDT:USDT", "APE/USDT:USDT", "KAS/USDT:USDT", "VOXEL/USDT:USDT", "RVN/USDT:USDT", "FUN/USDT:USDT", "F/USDT:USDT", "SAHARA/USDT:USDT", "SXP/USDT:USDT", "NEWT/USDT:USDT"]
+        await asyncio.gather(
+            self.sync_hedge(self.gate_pro, symbols),
+            self.sync_hedge(self.bitget_pro, symbols),
+        )
 
 if __name__ == '__main__':
-    asyncio.run(main())
-
+    exchange_manager = ExchangeManager(exchange1, exchange2)
+    adl_controller = ADLController(exchange_manager)
+    asyncio.run(adl_controller.main())

@@ -1,4 +1,9 @@
+import json
 import time
+
+import requests
+
+from Define import discord_config_path
 
 current_step = 0
 
@@ -53,3 +58,20 @@ def check_config_empty_by_error(fields):
     for field in fields:
         if not field:
             raise ValueError(f"Missing configuration for {field}")
+with open(discord_config_path, 'r', encoding='utf-8') as config_file:
+    config = json.load(config_file)
+webhook_url = config['discord'].get('webhook', '')
+def push_notification(message):
+    """
+    Gửi thông báo đến Discord thông qua webhook.
+    :param message: Nội dung thông báo
+    """
+    data = {
+        "content": message
+    }
+    response = requests.post(webhook_url, json=data)
+    if response.status_code == 204:
+        return True
+    else:
+        return False
+

@@ -16,11 +16,12 @@ exchange1 = NULL
 exchange2 = NULL
 
 print(f"argv: {sys.argv}")
-if len(sys.argv) < 4:
-    print("Usage: python3 Asset.py <_settings>")
-    sys.exit(1)
+if os.name == "nt":
+    root_path = "C:\\job\\dim\\fr_bot\\"
+else:
+    root_path = "/home/ubuntu/fr_bot"
 
-setting_file = sys.argv[3]
+setting_file = os.path.join(root_path, "code/_settings", 'config.txt')
 if not os.path.exists(setting_file):
     raise FileNotFoundError(f"Setting file {setting_file} does not exist.")
 
@@ -38,19 +39,17 @@ with open(setting_file, 'r', encoding='utf-8') as f:
 
     ini_path = settings[2]
 
-if os.name == "nt":
-    root_path = "C:\\"
-else:
-    root_path = "/home/ubuntu/fr_bot"
 
 log_path = os.path.join(root_path, "logs")
 tunel_log_path = os.path.join(log_path, "tunel")
 asset_log_path = os.path.join(log_path, "asset")
 adl_log_path = os.path.join(log_path, "adl.txt")
-tp_sl_log_path = os.path.join(log_path, "tpsl.txt")
+tp_sl_log_path = os.path.join(log_path, "tp_sl.txt")
 
 transfer_done_file = os.path.join(log_path, "transfer_done.txt")
 
 exchange_file_path = os.path.join(root_path, "code/_settings", ini_path, "exchange.json")
 transfer_info_path = os.path.join(root_path, "code/_settings", ini_path, "transfer.json")
 balance_info_path = os.path.join(root_path, "code/_settings", ini_path,  "balance.json")
+tp_sl_info_path = os.path.join(root_path, "code/_settings", ini_path, "tp_sl.json")
+discord_config_path = os.path.join(root_path, "code/_settings", ini_path, "config.json")

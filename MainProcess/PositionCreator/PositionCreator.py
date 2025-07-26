@@ -3,26 +3,18 @@ import time
 
 import ccxt
 
-symbols = [
-    "ZRC", "LAUNCHCOIN", "DMC", "USUAL", "CKB", "ZRO", "VVV", "BID",
-    "BADGER", "PARTI", "RARE", "KOMA", "ZEREBRO", "RESOLV", "COTI",
-    "XAUT", "OM", "GPS"
-]
+from Core.Tool import push_notification
 
-more_crypto_symbols = [
-    "BSW", "MYRO", "VINE", "TUT", "AUDIO", "MILK", "IMX", "NIL",
-    "APE", "KAITO", "FHE", "TANSSI", "IDOL", "SNT", "LISTA",
-    "BERA", "GRIFFAIN", "SXT"
-]
-extra_crypto_symbols = [
-    "LOOKS", "DYM", "SKYAI", "TA", "USDC", "SPX", "AGT", "C98",
-    "DRIFT", "RUNE", "EIGEN", "AIN", "VIRTUAL", "VELVET", "KNC",
-    "AMP", "TIA", "PIPPIN"
-]
-symbols.extend(more_crypto_symbols)
-symbols.extend(extra_crypto_symbols)
+root_path = "C:\\job\\dim\\FrAbitrage\\"
 
-symbols = [symbol + "/USDT:USDT" for symbol in symbols]
+symbols = []
+
+file = open(f"{root_path}/_settings/futures_symbols.txt", 'r', encoding='utf-8')
+lines = file.readlines()
+for line in lines:
+    symbols.append(line.strip())
+
+print(f"Start with symbols size{len(symbols)}")
 
 gate = ccxt.gate()
 bitget = ccxt.bitget()
@@ -66,17 +58,20 @@ async def fetch_all_funding_rates(symbols):
     while True:
         for symbol in symbols:
             print(f"Fetching funding rate for symbol: {symbol}")
+            symbol = symbol + "/USDT:USDT"
             fetch_funding_rate(gate, symbol, "gate")
             fetch_funding_rate(bitget, symbol, "bitget")
             print(f"Updated funding rate for symbol :{symbol}", f"rate: {rates[symbol]}")
-            await asyncio.sleep(2)
+            await asyncio.sleep(0.2)
 
 potential_symbols = []
 
 def entry_potential(symbol):
-    print(f"Potential arbitrage opportunity found for {symbol}")
-    import subprocess
-    subprocess.Popen(['python', 'PotentialChecker.py', symbol])
+    with open(f"{root_path}/_data/futures_symbols.txt", 'w', encoding='utf-8') as f:
+        f.write(str(potential_symbols))
+    import winsound
+    winsound.Beep(1000, 500)
+    push_notification(f'New potetial {symbol}')
 
 async def main():
     task  = asyncio.create_task(fetch_all_funding_rates(symbols))

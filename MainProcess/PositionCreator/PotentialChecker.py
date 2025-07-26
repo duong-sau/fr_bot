@@ -5,6 +5,7 @@ import asyncio
 
 last_prices = {}
 
+
 def convert_symbol(exchange, symbol):
     symbol = symbol.replace(':USDT', '')
     if exchange == "bitget":
@@ -33,16 +34,8 @@ async def calculate_spreads(symbol):
 
     threshold = 0
     while True:
-        # print("\033[2J\033[H", end='')
-        # print(f"{'Symbol':<15} {'BID':<15} {'ASK':<15} {'SPREAD (%)':<10}")
-        # print("=" * 50)
-
         bid = last_prices[symbol]['bid']
         ask = last_prices[symbol]['ask']
-
-        bid_display = f"{bid:.6f}" if bid is not None else 'N/A'
-        ask_display = f"{ask:.6f}" if ask is not None else 'N/A'
-
         spread = bid - ask if bid is not None and ask is not None else 0
         spread_percent = (spread / bid * 100) if bid else 0
         if spread_percent > threshold:
