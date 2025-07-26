@@ -13,7 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Cons
 
 from MainProcess.TP_SL_Control.Order import open_take_profit_bitget, open_stop_loss_bitget, open_take_profit_gate, \
     open_stop_loss_gate
-from Define import tp_sl_log_path, exchange1, exchange2, tp_sl_info_path
+from Define import tp_sl_log_path, exchange1, exchange2, tp_sl_info_path, root_path
 from Core.Tool import write_log
 
 
@@ -91,8 +91,10 @@ if __name__ == '__main__':
     tp_rate = float(config['TP_SL']['tp_rate'])
     sl_rate = float(config['TP_SL']['sl_rate'])
     interval = int(config['TP_SL']['interval'])
-    symbols = config['symbols']
 
+    with open(f"{root_path}/code/_settings/futures_symbols.txt", 'r', encoding='utf-8') as file:
+        lines = file.readlines()
+    symbols = [line.strip() + "/USDT:USDT" for line in lines if line.strip()]
     print(f"Starting TP/SL control with symbols: {symbols}, TP rate: {tp_rate}, SL rate: {sl_rate}, Interval: {interval} seconds")
 
     threads = []

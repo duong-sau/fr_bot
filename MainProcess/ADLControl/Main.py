@@ -6,7 +6,7 @@ from ccxt import ExchangeError
 
 from Core.Exchange.Exchange import ExchangeManager
 from Core.Tool import try_this
-from Define import exchange1, exchange2
+from Define import exchange1, exchange2, root_path
 from MainProcess.ADLControl.Log import adl_log
 from MainProcess.ADLControl.Order import close_position_gate, close_position_bitget, fetch_position_bitget, \
     fetch_position_gate
@@ -100,7 +100,11 @@ class ADLController:
                 time.sleep(1)
 
     async def main(self):
-        symbols = [ "DIA/USDT:USDT", "APE/USDT:USDT", "KAS/USDT:USDT", "VOXEL/USDT:USDT", "RVN/USDT:USDT", "FUN/USDT:USDT", "F/USDT:USDT", "SAHARA/USDT:USDT", "SXP/USDT:USDT", "NEWT/USDT:USDT"]
+
+        with open(f"{root_path}/code/_settings/futures_symbols.txt", 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+        symbols = [line.strip() + "/USDT:USDT" for line in lines if line.strip()]
+        print(f"Start with symbols size: {len(symbols)}")
         await asyncio.gather(
             self.sync_hedge(self.gate_pro, symbols),
             self.sync_hedge(self.bitget_pro, symbols),
