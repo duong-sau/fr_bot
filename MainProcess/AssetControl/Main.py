@@ -9,15 +9,15 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
 
 from AssetControl.BalanceConfig import max_diff_rate
-from Tracker.GateIOTracker import GateIOTracker
+from MainProcess.PositionView.Tracker.GateIOTracker import GateIOTracker
 import Define
 from Core.Define import EXCHANGE, convert_exchange_to_name
-from Console_.DebugWindow import CursesStream
+from Core.Console_ import CursesStream
 from Core.AliveServiceClient import AliveServiceClient
 from Define import asset_log_path, transfer_done_file, SERVICE_NAME
-from Tool import write_log, step, clear_console
-from Tracker.BinanceTracker import BinanceTracker
-from Tracker.BitgetTracker import BitgetTracker
+from Core.Tool import write_log, step, clear_console
+from MainProcess.PositionView.Tracker.BinanceTracker import BinanceTracker
+from MainProcess.PositionView.Tracker.BitgetTracker import BitgetTracker
 from AssetControl.Console import draw_positions_table
 from Config import load_config
 start_time = time.time()

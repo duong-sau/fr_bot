@@ -1,6 +1,5 @@
 from pybitget import Client
 import Config
-from Tool import try_this
 
 
 def transfer_from_bitget_main_to_sub(code, amount, fromAccount='swap', toAccount='spot'):

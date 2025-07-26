@@ -1,4 +1,3 @@
-import importlib
 import os.path
 import sys
 import time
@@ -10,8 +9,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core
 from TransferConfig import TransferConfig
 from Core.Define import EXCHANGE
 from Define import tunel_log_path, transfer_done_file
-from Exchange.Exchange import gate_exchange, bitget_exchange, binance_exchange
-from Tool import try_this, write_log
+from Core.Exchange.Exchange import gate_exchange, bitget_exchange, binance_exchange
+from Core.Tool import try_this, write_log
 from SubTransfer import transfer_from_bitget_main_to_sub
 
 bitget = bitget_exchange

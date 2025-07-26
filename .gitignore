@@ -1,6 +1,6 @@
 *__pycache__
-linux_env
+.linux_env
 .idea
 .venv
-settings
-ssh
+_settings
+_ssh

@@ -3,21 +3,22 @@ import threading
 import time
 import os
 from ccxt import ExchangeError
+import json
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
 
-from ADLControl.Order import open_take_profit_bitget, open_stop_loss_bitget, open_take_profit_gate, open_stop_loss_gate
+from MainProcess.TP_SL_Control.Order import open_take_profit_bitget, open_stop_loss_bitget, open_take_profit_gate, open_stop_loss_gate
 from Define import tp_sl_log_path
-from Exchange.Exchange import bitget_exchange, gate_exchange
-from Tool import try_this, write_log
+from Core.Exchange.Exchange import bitget_exchange, gate_exchange
+from Core.Tool import write_log
 
 def tp_sl_log(message):
     sys_log = tp_sl_log_path
     write_log(message, sys_log)
 
-def auto_tp_sl(bitget, gate, symbol, tp_rate, sl_rate):
+def auto_tp_sl(bitget, gate, symbol, tp_rate, sl_rate, interval=180):
     while True:
         bitget_symbol = symbol
         bitget_position = bitget.fetch_position(bitget_symbol)
@@ -71,23 +72,27 @@ def auto_tp_sl(bitget, gate, symbol, tp_rate, sl_rate):
         gate_sl_order = open_stop_loss_gate(gate, symbol, "SHORT", bitget_total, gate_sl)
         bitget_sl_order = open_stop_loss_bitget(bitget, symbol, bitget_side, bitget_total, bitget_sl)
 
-        time.sleep(180)  # Sleep for 2 minutes before checking again
+        time.sleep(interval)  # Sleep for 2 minutes before checking again
 if __name__ == '__main__':
 
-    symbols = ["APE", "KAS", "VOXEL", "RVN", "FUN", "F", "SAHARA", "SXP", "NEWT" ,  "DIA"]
 
     bitget =bitget_exchange
     gate = gate_exchange
 
-    tp_rate = 0.05  #
-    sl_rate = 0.05
 
-    interval = 300 # 5 minutes
+
+    with open('tp_sl.json', 'r', encoding='utf-8') as f:
+        config = json.load(f)
+
+    tp_rate = float(config['TP_SL']['tp_rate'])
+    sl_rate = float(config['TP_SL']['sl_rate'])
+    interval = int(config['TP_SL']['interval'])
+    symbols = config['TP_SL']['symbols']
 
     threads = []
     for symbol in symbols:
         symbol_full = f"{symbol}/USDT:USDT"
-        t = threading.Thread(target=auto_tp_sl, args=( bitget, gate,symbol_full, tp_rate, sl_rate))
+        t = threading.Thread(target=auto_tp_sl, args=( bitget, gate,symbol_full, tp_rate, sl_rate, interval))
         t.start()
         threads.append(t)
         time.sleep(10)

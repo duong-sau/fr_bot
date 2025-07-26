@@ -1,8 +1,7 @@
 import json
-import sys
 
-from Core.Define import convert_exchange_name_to_exchange, EXCHANGE
-from Tool import check_config_empty_by_error
+from Core.Define import EXCHANGE
+from Core.Tool import check_config_empty_by_error
 from Define import exchange_file_path
 
 binance_api_key, binance_api_secret = '', ''

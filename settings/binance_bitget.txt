@@ -1,3 +1,0 @@
-binance
-bitget
-binance_bitget_ini

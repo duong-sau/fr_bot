@@ -8,6 +8,8 @@ class SERVICE_NAME(Enum):
     Enum for service names.
     """
     ASSET_CONTROL = "asset_control"
+    TP_SL_CONTROL = "tp_sl_control"
+    ADL_CONTROL = "adl_control"
 
 NULL = None
 exchange1 = NULL
@@ -15,7 +17,7 @@ exchange2 = NULL
 
 print(f"argv: {sys.argv}")
 if len(sys.argv) < 4:
-    print("Usage: python3 Asset.py <settings>")
+    print("Usage: python3 Asset.py <_settings>")
     sys.exit(1)
 
 setting_file = sys.argv[3]
@@ -49,6 +51,6 @@ tp_sl_log_path = os.path.join(log_path, "tpsl.txt")
 
 transfer_done_file = os.path.join(log_path, "transfer_done.txt")
 
-exchange_file_path = os.path.join(root_path, "code/settings", ini_path, "exchange.json")
-transfer_info_path = os.path.join(root_path, "code/settings", ini_path, "transfer.json")
-balance_info_path = os.path.join(root_path, "code/settings", ini_path,  "balance.json")
+exchange_file_path = os.path.join(root_path, "code/_settings", ini_path, "exchange.json")
+transfer_info_path = os.path.join(root_path, "code/_settings", ini_path, "transfer.json")
+balance_info_path = os.path.join(root_path, "code/_settings", ini_path,  "balance.json")

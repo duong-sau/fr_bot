@@ -8,15 +8,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
 
-import Exchange.Exchange
 from Define import adl_log_path
-from Tool import try_this, write_log
+from Core.Tool import try_this, write_log
 
-bitget_pro = Exchange.Exchange.bitget_pro
-gate_pro = Exchange.Exchange.gate_pro
+bitget_pro = Core.Exchange.Exchange.bitget_pro
+gate_pro = Core.Exchange.Exchange.gate_pro
 
-bitget_exchange = Exchange.Exchange.bitget_exchange
-gate_exchange = Exchange.Exchange.gate_exchange
+bitget_exchange = Core.Exchange.Exchange.bitget_exchange
+gate_exchange = Core.Exchange.Exchange.gate_exchange
 
 def adl_log(message):
     sys_log = adl_log_path
@@ -49,9 +48,10 @@ def close_position_bitget(symbol, hold_side, diff):
     adl_log(order)
 
 
+
 def check_position_change(symbol):
     bitget_position = bitget_exchange.fetch_position(symbol)
-    adl_log(f"Current position: {bitget_position}")
+    print(f"Current position: {bitget_position}")
     if bitget_position['side'] is None:
         bitget_total = 0
     else:
@@ -59,7 +59,7 @@ def check_position_change(symbol):
 
     try:
         gate_position = gate_exchange.fetch_position(symbol)
-        adl_log(f"Current position: {gate_position}")
+        print(f"Current position: {gate_position}")
         gate_total = float(gate_position['contracts']) * float(gate_position['contractSize'])
     except ExchangeError as e:
         adl_log(f"HTTP error occurred: {e}")
@@ -94,6 +94,8 @@ positions = {}
 async def sync_hedge(exchange, symbols):
     await exchange.load_markets()
     adl_log(f"Listening for position changes on {exchange.id}...")
+
+    error_count = 0
 
     while True:
         try:
@@ -134,8 +136,10 @@ async def sync_hedge(exchange, symbols):
                 else:
                     adl_log(f"Unknown exchange id: {exchange.id}")
                     sys.exit(1)
+            error_count = error_count -1 if error_count > 1 else 0
 
         except Exception as e:
+            error_count += 1
             adl_log(f"Lỗi khi sync: {e}")
             time.sleep(1)
 
