@@ -1,9 +1,9 @@
 import asyncio
+import os
 import sys
 import time
 
-from ccxt import ExchangeError
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from Core.Exchange.Exchange import ExchangeManager
 from Core.Tool import try_this
 from Define import exchange1, exchange2, root_path

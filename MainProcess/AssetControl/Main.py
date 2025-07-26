@@ -2,17 +2,12 @@ import os
 import subprocess
 import sys
 import time
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 from Core.Exchange.Exchange import ExchangeManager
 from Core.Tracker.BitgetTracker import BitgetTracker
 from Core.Tracker.GateIOTracker import GateIOTracker
 from MainProcess.AssetControl.BalanceConfig import max_diff_rate
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
-
-
 import Define
 from Core.Define import EXCHANGE, convert_exchange_to_name
 from Core.AliveServiceClient import AliveServiceClient

@@ -4,13 +4,8 @@ import time
 import os
 from ccxt import ExchangeError
 import json
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from Core.Exchange.Exchange import ExchangeManager
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Core")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../Console_")))
-
 from MainProcess.TP_SL_Control.Order import open_take_profit_bitget, open_stop_loss_bitget, open_take_profit_gate, \
     open_stop_loss_gate
 from Define import tp_sl_log_path, exchange1, exchange2, tp_sl_info_path, root_path
@@ -42,7 +37,7 @@ def auto_tp_sl(bitget, gate, symbol, tp_rate, sl_rate, interval=180):
             else:
                 raise e
 
-        if gate_total == 0 and bitget_total == 0:
+        if gate_total == 0 or bitget_total == 0:
             return
 
         bitget_price = bitget.fetch_ticker(symbol)['last']
@@ -70,10 +65,10 @@ def auto_tp_sl(bitget, gate, symbol, tp_rate, sl_rate, interval=180):
             gate_side = "SHORT"
 
         gate.cancelAllOrders(symbol=symbol, params={'trigger': True})
-        gate_tp_order = open_take_profit_gate(gate, symbol, gate_side, bitget_total, gate_tp)
+        gate_tp_order = open_take_profit_gate(gate, symbol, gate_side, gate_total, gate_tp)
         bitget_tp_order = open_take_profit_bitget(bitget, symbol, bitget_side, bitget_total, bitget_tp)
 
-        gate_sl_order = open_stop_loss_gate(gate, symbol, "SHORT", bitget_total, gate_sl)
+        gate_sl_order = open_stop_loss_gate(gate, symbol, "SHORT", gate_total, gate_sl)
         bitget_sl_order = open_stop_loss_bitget(bitget, symbol, bitget_side, bitget_total, bitget_sl)
 
         time.sleep(interval)  # Sleep for 2 minutes before checking again
@@ -92,9 +87,11 @@ if __name__ == '__main__':
     sl_rate = float(config['TP_SL']['sl_rate'])
     interval = int(config['TP_SL']['interval'])
 
-    with open(f"{root_path}/code/_settings/futures_symbols.txt", 'r', encoding='utf-8') as file:
+    symbols = []
+    with open(f"{root_path}/code/_settings/symbols.txt", 'r', encoding='utf-8') as file:
         lines = file.readlines()
-    symbols = [line.strip() + "/USDT:USDT" for line in lines if line.strip()]
+    for line in lines:
+        symbols.append(line.strip())
     print(f"Starting TP/SL control with symbols: {symbols}, TP rate: {tp_rate}, SL rate: {sl_rate}, Interval: {interval} seconds")
 
     threads = []

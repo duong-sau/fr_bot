@@ -10,19 +10,19 @@ mkdir -p /home/ubuntu/$BOT_NAME/{data,logs}
 # sudo mount -t tmpfs -o size=32M tmpfs /home/ubuntu/$BOT_NAME/data
 
 screen -dmS main_screen
-screen -S main_screen -X stuff "source linux_env/bin/activate\n"
-screen -S main_screen -X stuff "python AssetControl/Asset_Process.py bitget gate settings/bitget_gate.txt\n"
+screen -S main_screen -X stuff "source .linux_env/bin/activate\n"
+screen -S main_screen -X stuff "python MainProcess/AssetControl/Main.py\n"
 
 screen -dmS discord_screen
-screen -S discord_screen -X stuff "source linux_env/bin/activate\n"
+screen -S discord_screen -X stuff "source .linux_env/bin/activate\n"
 screen -S discord_screen -X stuff "python Discord.py /home/ubuntu/fr_bot/logs/asset/syslog.log\n"
 
 screen -dmS tp_sl_screen
-screen -S tp_sl_screen -X stuff "source linux_env/bin/activate\n"
-screen -S tp_sl_screen -X stuff "python TP_SL_Control/TP_SL_Control.py bitget gate settings/bitget_gate.txt\n"
+screen -S tp_sl_screen -X stuff "source .linux_env/bin/activate\n"
+screen -S tp_sl_screen -X stuff "python MainProcess/TP_SL_Control/Main.py\n"
 
 screen -dmS adl_screen
-screen -S adl_screen -X stuff "source linux_env/bin/activate\n"
-screen -S adl_screen -X stuff "python ADLDetect/ADL_DetectProcess.py bitget gate settings/bitget_gate.txt\n"
+screen -S adl_screen -X stuff "source .linux_env/bin/activate\n"
+screen -S adl_screen -X stuff "python MainProcess/ADLControl/Main.py\n"
 
 screen -r main_screen
