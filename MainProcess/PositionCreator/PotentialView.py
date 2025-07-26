@@ -1,5 +1,9 @@
+import os
+
 import ccxt.pro
 import asyncio
+
+from Define import root_path
 
 last_prices = {}
 
@@ -49,11 +53,12 @@ async def calculate_spreads(symbols):
         await asyncio.sleep(0.1)
 
 async def main():
-    # symbols = ["VVV/USDT", "BADGER/USDT", "NC/USDT","H/USDT","VELO/USDT","LEVER/USDT", "T/USDT", "DEEP/USDT", "COW/USDT", "GUN/USDT", "AGI/USDT", "BB/USDT", "WAXP/USDT", "ROAM/USDT", "KERNEL/USDT",
-    # symbols = ["SUN/USDT", "PLUME/USDT", "PFVS/USDT", "LISTA/USDT", "ELX/USDT", "BLAST/USDT", "TOSHI/USDT", "SPX/USDT", "BMT/USDT", "RSS3/USDT"]
-    # symbols = ["H/USDT", "SNT/USDT", "ZRC/USDT", "AERGO/USDT", "F/USDT", "VOXEL/USDT", "SQD/USDT", "ALPINE/USDT"]
-    symbols = ["SPX/USDT", "H/USDT", "MASK/USDT", "NEWT/USDT", "PORT3/USDT", "BMT/USDT", "RVN/USDT", "HIFI/USDT", "KERNEL/USDT", "SXP/USDT", "F/USDT", "LOKA/USDT", "DUCK/USDT", "DBR/USDT"]
-
+    potential_file = os.path.join(root_path, "data/futures_symbols.txt")
+    symbols = []
+    with open(potential_file, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            symbols.append(line.strip().replace(':USDT', ''))  # Loại bỏ ':USDT' nếu có
     # Tạo instance của ccxt
     bitget_exchange = ccxt.pro.bitget({'options': {'defaultType': 'swap'}})
     gate_exchange = ccxt.pro.gateio({'options': {'defaultType': 'swap'}})

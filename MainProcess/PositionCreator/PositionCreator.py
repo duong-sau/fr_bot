@@ -1,8 +1,9 @@
 import asyncio
-import time
-
+import os
+import sys
 import ccxt
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from Core.Tool import push_notification
 from Define import root_path
 
@@ -67,7 +68,8 @@ potential_symbols = []
 
 def entry_potential(symbol):
     with open(f"{root_path}/data/futures_symbols.txt", 'w', encoding='utf-8') as f:
-        f.write(str(potential_symbols))
+        for s in potential_symbols:
+            f.write(s + '\n')
     push_notification(f'New potetial {symbol}')
     import subprocess
     subprocess.Popen(

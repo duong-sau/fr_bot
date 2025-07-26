@@ -1,8 +1,9 @@
+import os
 import sys
-
 import ccxt.pro
 import asyncio
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from Core.Tool import push_notification
 
 last_prices = {}
