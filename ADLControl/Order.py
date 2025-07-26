@@ -5,7 +5,7 @@ def open_take_profit_gate(client, symbol, side, quantity, price):
     try:
         order = try_this(client.createOrder,
                          params={'symbol': symbol,
-                                 'type': 'stop_market',
+                                 'type': 'market',
                                  'side': 'buy' if side == 'LONG' else 'sell',
                                  'amount': quantity,
                                  'price': price,
@@ -24,7 +24,7 @@ def open_stop_loss_gate(client, symbol, side, quantity, price):
     try:
         order = try_this(client.createOrder,
                             params={'symbol': symbol,
-                                    'type': 'stop_market',
+                                    'type': 'market',
                                     'side': 'buy' if side == 'LONG' else 'sell',
                                     'amount': quantity,
                                     'price': price,
