@@ -71,11 +71,9 @@ def check_position_change(symbol):
     if gate_total == 0 and bitget_total == 0:
         return
 
-    bitget_side = bitget_position['info']['holdSide'].upper()
-    if bitget_side == "LONG":
-        gate_side = "SHORT"
-    else:
-        gate_side = "LONG"
+    # bitget_side = bitget_position['info']['holdSide'].upper()
+    bitget_side = "SHORT"
+    gate_side = "LONG"
 
     adl_log(f"Gate total: {gate_total}, Bitget total: {bitget_total}, Symbol: {symbol}, Gate side: {gate_side}, Bitget side: {bitget_side}")
 
