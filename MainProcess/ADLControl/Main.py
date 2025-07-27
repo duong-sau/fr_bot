@@ -41,12 +41,12 @@ class ADLController:
             diff = gate_total - bitget_total
             adl_log(f"Gate has more position: {diff} {symbol}")
             diff_contras = diff / bitget_contract_size
-            close_position_gate(symbol, gate_side, diff_contras)
+            close_position_gate(self.gate_exchange, symbol, gate_side, diff_contras)
         elif bitget_total > gate_total:
             diff = bitget_total - gate_total
             adl_log(f"Bitget has more position: {diff} {symbol}")
             diff_contras = diff / gate_contract_size
-            close_position_bitget(symbol, bitget_side, diff_contras)
+            close_position_bitget(self.bitget_exchange, symbol, bitget_side, diff_contras)
 
     async def sync_hedge(self, exchange, symbols):
         await exchange.load_markets()
