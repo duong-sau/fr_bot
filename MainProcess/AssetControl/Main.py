@@ -145,6 +145,14 @@ if __name__ == '__main__':
         while True:
             try:
                 asset_process.tick()
+                alive_service_client.tick(
+                    params={'total_balance': asset_process.get_asset_info()['binance'].total_margin_balance + asset_process.get_asset_info()['bitget'].total_margin_balance,
+                            'bitget_balance': asset_process.get_asset_info()['bitget'].total_margin_balance,
+                            'gate_balance': asset_process.get_asset_info()['binance'].total_margin_balance,
+                            'min_asset_transfer': asset_process.get_asset_info()['estimated_min_balance'],
+                            'in_transfer': asset_process.get_status()}
+
+                )
             except Exception as e:
                 asset_control_log(f"Error during asset process tick: {e}")
                 time.sleep(5)
