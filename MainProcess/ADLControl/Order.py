@@ -35,8 +35,8 @@ def fetch_position_gate(gate_exchange, symbol):
         gate_position = gate_exchange.fetch_position(symbol)
         print(f"Current position: {gate_position}")
         gate_total = float(gate_position['contracts']) * float(gate_position['contractSize'])
-        gate_side = gate_position['side'] if gate_position['side'] else None
-        contract_size = gate_position['contractSize']
+        gate_side = gate_position['side'].upper() 
+        contract_size = float(gate_position['contractSize'])
         return gate_total, gate_side, contract_size
     except ExchangeError as e:
         adl_log(f"HTTP error occurred: {e}")
@@ -57,6 +57,6 @@ def fetch_position_bitget(bitget_exchange, symbol):
         contract_size = None
     else:
         bitget_total = float(bitget_position['contracts']) * float(bitget_position['contractSize'])
-        bitget_side = bitget_position['side']
-        contract_size = bitget_position['contractSize']
+        bitget_side = bitget_position['side'].upper()  # Convert to uppercase for consistency
+        contract_size = float(bitget_position['contractSize'])
     return bitget_total, bitget_side, contract_size
