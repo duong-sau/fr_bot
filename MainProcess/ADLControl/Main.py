@@ -58,6 +58,65 @@ class ADLController:
             try:
                 pos = await exchange.watch_positions(symbols=symbols)
                 print(pos)
+
+                # Check for symbols not present in current positions
+                current_symbols = {p['symbol'] for p in pos}
+                for symbol in symbols:
+                    if symbol not in current_symbols:
+                        async with self.lock:
+                            old_bitget_size = self.positions.get(symbol, {}).get('bitget_size', 0)
+                            old_gate_size = self.positions.get(symbol, {}).get('gate_size', 0)
+                        if exchange.id == 'bitget' and old_bitget_size != 0:
+                            adl_log(f"Bitget position changed for {symbol}: {old_bitget_size} -> 0")    
+                            try_this(self.check_position_change, params={'symbol': symbol}, log_func=adl_log, retries=5,
+                                     delay=1)
+                            async with self.lock:
+                                self.positions.setdefault(symbol, {})['bitget_size'] = 0
+                        elif exchange.id == 'gateio' and old_gate_size != 0:
+                            adl_log(f"GateIO position changed for {symbol}: {old_gate_size} -> 0")
+                            try_this(self.check_position_change, params={'symbol': symbol}, log_func=adl_log, retries=5,
+                                     delay=1)
+                            async with self.lock:
+                                self.positions.setdefault(symbol, {})['gate_size'] = 0
+
+                for p in pos:
+                    p_symbol = p['symbol']
+                    p_size = float(p['contracts']) * float(p['contractSize'])
+
+                    async with self.lock:
+                        if p_symbol not in self.positions:
+                            self.positions[p_symbol] = {
+                                'gate_size': p_size,
+                                'bitget_size': p_size,
+                            }
+                    old_bitget_size = self.positions[p_symbol]['bitget_size']
+                    old_gate_size = self.positions[p_symbol]['gate_size']
+
+                    async with self.lock:
+                        if exchange.id == 'bitget':
+                            self.positions[p_symbol]['bitget_size'] = p_size
+                        elif exchange.id == 'gateio':
+                            self.positions[p_symbol]['gate_size'] = p_size
+                        else:
+                            adl_log(f"Unknown exchange id: {exchange.id}")
+                            sys.exit(1)
+
+                    if exchange.id == 'bitget':
+                        if old_bitget_size != p_size:
+                            adl_log(f"Bitget position changed for {p_symbol}: {old_bitget_size} -> {p_size}")
+                            try_this(self.check_position_change, params={'symbol': p_symbol}, log_func=adl_log,
+                                     retries=5, delay=1)
+                        self.positions[p_symbol]['bitget_size'] = p_size
+                    elif exchange.id == 'gateio':
+                        if old_gate_size != p_size:
+                            adl_log(f"GateIO position changed for {p_symbol}: {old_gate_size} -> {p_size}")
+                            try_this(self.check_position_change, params={'symbol': p_symbol}, log_func=adl_log,
+                                     retries=5, delay=1)
+                    else:
+                        adl_log(f"Unknown exchange id: {exchange.id}")
+                        sys.exit(1)
+                self.error_count = self.error_count - 1 if self.error_count > 1 else 0
+
                 for p in pos:
                     p_symbol = p['symbol']
                     p_size = float(p['contracts']) * float(p['contractSize'])
