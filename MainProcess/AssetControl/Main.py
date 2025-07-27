@@ -47,7 +47,7 @@ class AssetProcess:
 
         asset_control_log(f"Transfer {amount} USDT from {from_exchange} to {to_exchange}")
         # script_path = os.path.abspath("AssetControl/Transfer.py")
-        script_path = f"{root_path}/MainProcess/AssetControl/Transfer/Transfer.py"
+        script_path = f"{root_path}/code/MainProcess/AssetControl/Transfer/Transfer.py"
         venv_python = sys.executable
         self.process = subprocess.Popen(
             [venv_python, script_path, from_exchange, to_exchange, str(amount)],
