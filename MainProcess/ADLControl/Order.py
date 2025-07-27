@@ -34,8 +34,14 @@ def fetch_position_gate(gate_exchange, symbol):
     try:
         gate_position = gate_exchange.fetch_position(symbol)
         print(f"Current position: {gate_position}")
+        if gate_position['side'] is None:
+            gate_total = 0
+            gate_side = None
+            contract_size = None
+            return gate_total, gate_side, contract_size
+
         gate_total = float(gate_position['contracts']) * float(gate_position['contractSize'])
-        gate_side = gate_position['side'].upper() 
+        gate_side = gate_position['side'].upper()
         contract_size = float(gate_position['contractSize'])
         return gate_total, gate_side, contract_size
     except ExchangeError as e:
