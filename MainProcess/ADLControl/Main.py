@@ -40,12 +40,12 @@ class ADLController:
         if gate_total > bitget_total:
             diff = gate_total - bitget_total
             adl_log(f"Gate has more position: {diff} {symbol}")
-            diff_contras = diff / bitget_contract_size
+            diff_contras = diff / gate_contract_size
             close_position_gate(self.gate_exchange, symbol, gate_side, diff_contras)
         elif bitget_total > gate_total:
             diff = bitget_total - gate_total
             adl_log(f"Bitget has more position: {diff} {symbol}")
-            diff_contras = diff / gate_contract_size
+            diff_contras = diff / bitget_contract_size
             close_position_bitget(self.bitget_exchange, symbol, bitget_side, diff_contras)
 
     async def sync_hedge(self, exchange, symbols):
@@ -67,7 +67,7 @@ class ADLController:
                             old_bitget_size = self.positions.get(symbol, {}).get('bitget_size', 0)
                             old_gate_size = self.positions.get(symbol, {}).get('gate_size', 0)
                         if exchange.id == 'bitget' and old_bitget_size != 0:
-                            adl_log(f"Bitget position changed for {symbol}: {old_bitget_size} -> 0")    
+                            adl_log(f"Bitget position changed for {symbol}: {old_bitget_size} -> 0")
                             try_this(self.check_position_change, params={'symbol': symbol}, log_func=adl_log, retries=5,
                                      delay=1)
                             async with self.lock:
