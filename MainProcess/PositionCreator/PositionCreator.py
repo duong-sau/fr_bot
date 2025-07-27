@@ -70,7 +70,6 @@ def entry_potential(symbol):
     with open(f"{root_path}/data/futures_symbols.txt", 'w', encoding='utf-8') as f:
         for s in potential_symbols:
             f.write(s + '\n')
-    push_notification(f'New potetial {symbol}')
     import subprocess
     subprocess.Popen(
         ['python', f'{root_path}/code/MainProcess/PositionCreator/PotentialChecker.py', symbol],
@@ -92,6 +91,7 @@ async def main():
                     if bitget_rate - gate_rate > threshold_in:
                         potential_symbols.append(symbol)
                         entry_potential(symbol)
+                        push_notification(f'New potetial {symbol}, Gate Rate: {gate_rate}, Bitget Rate: {bitget_rate}')
                         print(f"Potential arbitrage opportunity found for {symbol}: Gate Rate: {gate_rate}, Bitget Rate: {bitget_rate}")
                 else:
                     if bitget_rate - gate_rate <= threshold_out:
