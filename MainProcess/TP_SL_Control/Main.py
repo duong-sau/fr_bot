@@ -19,7 +19,7 @@ def tp_sl_log(message):
 
 def auto_tp_sl(bitget, gate, symbol, tp_rate, sl_rate, interval=180):
     while True:
-        bitget_symbol = symbol
+        bitget_symbol = "OMNI1/USDT:USDT" if symbol == "OMNI/USDT:USDT" else symbol
         bitget_position = bitget.fetch_position(bitget_symbol)
         tp_sl_log(f"Current position: {bitget_position}")
         if bitget_position['side'] is None:
@@ -40,7 +40,7 @@ def auto_tp_sl(bitget, gate, symbol, tp_rate, sl_rate, interval=180):
         if gate_total == 0 or bitget_total == 0:
             return
 
-        bitget_price = bitget.fetch_ticker(symbol)['last']
+        bitget_price = bitget.fetch_ticker(bitget_symbol)['last']
         bitget_side = bitget_position['info']['holdSide'].upper()
         if bitget_side == "LONG":
             # Bitget TP and SL for LONG position
@@ -66,10 +66,10 @@ def auto_tp_sl(bitget, gate, symbol, tp_rate, sl_rate, interval=180):
 
         gate.cancelAllOrders(symbol=symbol, params={'trigger': True})
         gate_tp_order = open_take_profit_gate(gate, symbol, gate_side, gate_total, gate_tp)
-        bitget_tp_order = open_take_profit_bitget(bitget, symbol, bitget_side, bitget_total, bitget_tp)
+        bitget_tp_order = open_take_profit_bitget(bitget, bitget_symbol, bitget_side, bitget_total, bitget_tp)
 
         gate_sl_order = open_stop_loss_gate(gate, symbol, "SHORT", gate_total, gate_sl)
-        bitget_sl_order = open_stop_loss_bitget(bitget, symbol, bitget_side, bitget_total, bitget_sl)
+        bitget_sl_order = open_stop_loss_bitget(bitget, bitget_symbol, bitget_side, bitget_total, bitget_sl)
 
         time.sleep(interval)  # Sleep for 2 minutes before checking again
 
