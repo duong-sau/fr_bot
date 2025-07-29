@@ -79,7 +79,7 @@ def entry_potential(symbol):
 
 async def main():
     task  = asyncio.create_task(fetch_all_funding_rates(symbols))
-    threshold_in = 0.2
+    threshold_in = 0.15
     threshold_out = 0.15
     while True:
         for symbol, rate in rates.items():

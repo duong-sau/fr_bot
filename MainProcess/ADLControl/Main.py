@@ -31,9 +31,10 @@ class ADLController:
 
 
     def check_position_change(self, symbol):
+        bitget_symbol = symbol.replace("OMNI", "OMNI1")
         bitget_total, bitget_side, bitget_contract_size = try_this(fetch_position_bitget,
                                                                    params={'bitget_exchange': self.bitget_exchange,
-                                                                           'symbol': symbol},
+                                                                           'symbol': bitget_symbol},
                                                                    log_func=adl_log, retries=5, delay=1)
         gate_total, gate_side, gate_contract_size = try_this(fetch_position_gate,
                                                             params={'gate_exchange': self.gate_exchange,
@@ -50,7 +51,7 @@ class ADLController:
             adl_log(f"Gate has more position: {diff} {symbol}")
             diff_contras = diff / gate_contract_size
             try:
-                close_position_gate(self.gate_exchange, symbol, gate_side, diff_contras)
+                # close_position_gate(self.gate_exchange, symbol, gate_side, diff_contras)
                 adl_log(f"Closed position on GateIO: {symbol}, Size: {diff_contras} {gate_side}")
             except Exception as e:
                 print(e)
@@ -60,7 +61,7 @@ class ADLController:
             adl_log(f"Bitget has more position: {diff} {symbol}")
             diff_contras = diff / bitget_contract_size
             try:
-                close_position_bitget(self.bitget_exchange, symbol, bitget_side, diff_contras)
+                # close_position_bitget(self.bitget_exchange, bitget_symbol, bitget_side, diff_contras)
                 adl_log(f"Closed position on Bitget: {symbol}, Size: {diff_contras} {bitget_side}")
             except Exception as e:
                 print(e)
@@ -90,9 +91,17 @@ class ADLController:
 
         while True:
             try:
-                pos = await exchange.watch_positions(symbols=symbols)
+                if exchange.id == 'bitget':
+                    bitget_symbols = [s.replace("OMNI", "OMNI1") for s in symbols]
+                    pos = await exchange.watch_positions(symbols=bitget_symbols)
+                    pos2 = []
+                    for p in pos:
+                        p['symbol'] = p['symbol'].replace("OMNI1", "OMNI")
+                        pos2.append(p)
+                    pos = pos2
+                else:
+                    pos = await exchange.watch_positions(symbols=symbols)
                 print(pos)
-
                 self.old_positions = copy.deepcopy(self.positions)
                 # Check for symbols not present in current positions
                 current_symbols = {p['symbol'] for p in pos}
@@ -126,7 +135,7 @@ class ADLController:
 
     async def main(self):
 
-        with open(f"{root_path}/code/_settings/futures_symbols.txt", 'r', encoding='utf-8') as file:
+        with open(f"{root_path}/code/_settings/symbols.txt", 'r', encoding='utf-8') as file:
             lines = file.readlines()
         symbols = [line.strip() + "/USDT:USDT" for line in lines if line.strip()]
         print(f"Start with symbols size: {len(symbols)}")
