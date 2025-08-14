@@ -51,7 +51,7 @@ class ADLController:
             adl_log(f"Gate has more position: {diff} {symbol}")
             diff_contras = diff / gate_contract_size
             try:
-                # close_position_gate(self.gate_exchange, symbol, gate_side, diff_contras)
+                close_position_gate(self.gate_exchange, symbol, gate_side, diff_contras)
                 adl_log(f"Closed position on GateIO: {symbol}, Size: {diff_contras} {gate_side}")
             except Exception as e:
                 print(e)
@@ -61,7 +61,7 @@ class ADLController:
             adl_log(f"Bitget has more position: {diff} {symbol}")
             diff_contras = diff / bitget_contract_size
             try:
-                # close_position_bitget(self.bitget_exchange, bitget_symbol, bitget_side, diff_contras)
+                close_position_bitget(self.bitget_exchange, bitget_symbol, bitget_side, diff_contras)
                 adl_log(f"Closed position on Bitget: {symbol}, Size: {diff_contras} {bitget_side}")
             except Exception as e:
                 print(e)
