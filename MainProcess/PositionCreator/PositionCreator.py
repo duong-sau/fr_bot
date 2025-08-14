@@ -62,7 +62,7 @@ async def fetch_all_funding_rates(symbols):
             fetch_funding_rate(gate, symbol, "gate")
             fetch_funding_rate(bitget, symbol, "bitget")
             print(f"Updated funding rate for symbol :{symbol}", f"rate: {rates[symbol]}")
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.2)
 
 potential_symbols = []
 
@@ -79,8 +79,8 @@ def entry_potential(symbol):
 
 async def main():
     task  = asyncio.create_task(fetch_all_funding_rates(symbols))
-    threshold_in = 0.15
-    threshold_out = 0.15
+    threshold_in = 0.12
+    threshold_out = 0.08
     while True:
         for symbol, rate in rates.items():
             gate_rate = rate['gate']

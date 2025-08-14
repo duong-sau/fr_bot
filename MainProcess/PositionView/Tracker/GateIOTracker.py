@@ -1,10 +1,11 @@
 from Core.Define import PositionSide, Position, EXCHANGE
-from Core.Tracker.Tracker import AccountBalance
+from Core.Exchange import Exchange
+from MainProcess.PositionView.Tracker.Tracker import AccountBalance
 
 
 class GateIOTracker:
-    def __init__(self, exchange):
-       self.client = exchange
+    def __init__(self):
+       self.client = Exchange.gate_exchange
 
     def get_open_positions(self):
         """
@@ -21,6 +22,7 @@ class GateIOTracker:
             position = Position(symbol=symbol, side=side, amount=float(pos['contracts']),
                                 entry_price=float(pos['entryPrice']), exchange=EXCHANGE.GATE, margin=margin)
             positions.append(position)
+
             total_paid_funding = self.get_paid_funding(symbol, pos['timestamp'])
             position.set_paid_funding(total_paid_funding)
 
@@ -30,13 +32,13 @@ class GateIOTracker:
         Fetch cross margin account information and calculate ROI for each asset.
         :return:
         """
-        account_info = self.client.fetchBalance(params={'unifiedAccount': True})
+        account_info = self.client.fetchBalance()
         info = account_info['info'][0]
-        total_margin_balance = float(info['unified_account_total_equity'])
-        total_initial_margin = 0
-        total_maint_margin =0
-        available_balance = 0
-        unrealized_pnl = 0
+        total_margin_balance = float(info['available']) + float(info['position_initial_margin'])
+        total_initial_margin = float(info['position_initial_margin'])
+        total_maint_margin = float(info['maintenance_margin'])
+        available_balance = float(info['available'])
+        unrealized_pnl = float(info['unrealised_pnl'])
 
         account_balance = AccountBalance(total_margin_balance,
                                          total_initial_margin,
@@ -44,6 +46,17 @@ class GateIOTracker:
                                          available_balance,
                                          unrealized_pnl)
         return account_balance
+    def get_current_funding_rate(self, symbol):
+        """
+        Get the current funding rate for a given symbol.
+        :param symbol:
+        :return:
+        """
+        symbol = symbol.replace('USDT', '_USDT')
+        funding_rate = self.client.fetchFundingRate(symbol)
+        funding_rate = float(funding_rate['fundingRate']) * 100
+        funding_rate = round(funding_rate, 4)
+        return funding_rate
     def get_paid_funding(self, symbol, start_time):
         """
         Get the total funding paid for a given symbol.
@@ -55,7 +68,6 @@ class GateIOTracker:
             The total funding paid as a float.
         """
         try:
-            symbol = symbol.replace('USDT', '/USDT:USDT')
             funding_history = self.client.fetchFundingHistory(symbol=symbol, since=start_time, limit=100)
             total_paid = sum(float(funding['amount']) for funding in funding_history)
             return total_paid
