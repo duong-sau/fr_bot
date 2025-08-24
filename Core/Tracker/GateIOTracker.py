@@ -1,3 +1,5 @@
+import time
+
 from Core.Define import PositionSide, Position, EXCHANGE
 from Core.Tracker.Tracker import AccountBalance
 
@@ -21,7 +23,8 @@ class GateIOTracker:
             position = Position(symbol=symbol, side=side, amount=float(pos['contracts']),
                                 entry_price=float(pos['entryPrice']), exchange=EXCHANGE.GATE, margin=margin)
             positions.append(position)
-            total_paid_funding = self.get_paid_funding(symbol, pos['timestamp'])
+            # total_paid_funding = self.get_paid_funding(symbol, pos['timestamp'])
+            total_paid_funding = float(pos['info'].get('pnl_fund', 0.0))
             position.set_paid_funding(total_paid_funding)
 
         return positions
@@ -44,21 +47,49 @@ class GateIOTracker:
                                          available_balance,
                                          unrealized_pnl)
         return account_balance
+
     def get_paid_funding(self, symbol, start_time):
         """
-        Get the total funding paid for a given symbol.
-
-        Args:
-            symbol: The trading pair symbol (e.g., 'BTC/USDT').
-
-        Returns:
-            The total funding paid as a float.
+        Lấy tổng funding đã trả từ start_time cho đến hiện tại.
         """
-        try:
-            symbol = symbol.replace('USDT', '/USDT:USDT')
-            funding_history = self.client.fetchFundingHistory(symbol=symbol, since=start_time, limit=100)
-            total_paid = sum(float(funding['amount']) for funding in funding_history)
-            return total_paid
-        except Exception as e:
-            print(f"Error fetching funding history for {symbol}: {e}")
-            return 0.0
+        total_paid = 0.0
+        end_time = self.client.milliseconds()
+        symbol = symbol.replace('USDT', '_USDT')
+        while True:
+            try:
+                funding_history = self.client.fetchFundingHistory(
+                    symbol=symbol,
+                    since=start_time,
+                    limit=100,
+                    end_time=end_time,
+                    params={
+                        'endTime': end_time,
+                    }
+                )
+            except Exception as e:
+                print(f"Lỗi lấy funding: {e}")
+                break
+
+            if not funding_history:
+                break
+
+            # Cộng funding
+            out = False
+            for f in funding_history:
+                if f.get('timestamp', 0) < start_time:
+                    out = True
+                    break
+                if f.get('timestamp', 0) > end_time:
+                    out = True
+                    break
+                total_paid += float(f.get("amount", 0))
+            if out:
+                break
+
+            # Lấy thời gian cuối cùng để tiếp tục
+            end_time = funding_history[0].get("timestamp") - 1
+
+            # Chờ nhẹ để tránh bị rate limit
+            time.sleep(0.2)
+
+        return total_paid

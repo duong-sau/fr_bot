@@ -118,6 +118,9 @@ class ADLController:
                     p_symbol = p['symbol']
                     p_size = float(p['contracts']) * float(p['contractSize'])
 
+                    if p_symbol.startswith("SXP"):
+                        continue
+
                     async with self.lock:
                         if exchange.id == 'bitget':
                             self.positions.setdefault(p_symbol, {})['bitget_size'] = p_size

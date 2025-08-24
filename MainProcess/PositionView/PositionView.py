@@ -33,8 +33,8 @@ def draw_positions_table(stdscr, abitrage_pairs, asset_info):
         stdscr.addstr(y, 45, str(pair.long_position.amount_))
         stdscr.addstr(y, 60, f"{pair.unreal_pnl:.2f} %")
         stdscr.addstr(y, 75, f"{-pair.unreal_pnl:.2f} %")
-        stdscr.addstr(y, 90, str(getattr(pair, 'long_funding', '')))
-        stdscr.addstr(y, 105, str(getattr(pair, 'short_funding', '')))
+        stdscr.addstr(y, 90, str(pair.long_position.paid_funding))
+        stdscr.addstr(y, 105, str(pair.short_position.paid_funding))
         stdscr.addstr(y, 120, str(getattr(pair, 'funding_diff', '')), curses.color_pair(1))
 
 
