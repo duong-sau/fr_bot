@@ -24,9 +24,11 @@ import os
 import asyncio
 import logging
 import json
+import sys
+
 import ccxt.pro as ccxtpro
 import ccxt.async_support as ccxt
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from Define import root_path
 
 SYMBOL_PERP_CCXT = 'SXP/USDT:USDT'
