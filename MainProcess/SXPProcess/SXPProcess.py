@@ -243,8 +243,8 @@ async def bitget_positions_listener_and_rebalancer(bitget_fut):
                     if side == 'short' or contracts < 0:
                         short_pos += abs(contracts)
             logging.info(f"[bitget] Short position: {short_pos:.2f}")
-            if short_pos < BINANCE_SHORT_QTY - 5:
-                need = BINANCE_SHORT_QTY - short_pos
+            if short_pos < BITGET_SHORT_QTY - 5:
+                need = BITGET_SHORT_QTY - short_pos
                 logging.info(f"[bitget] Short under target -> opening short {need}")
                 await open_market_short(bitget_fut, SYMBOL_PERP_CCXT, need)
         except Exception as e:
