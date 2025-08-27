@@ -26,6 +26,8 @@ class BitgetTracker:
                                 entry_price=float(pos['entryPrice']), exchange=EXCHANGE.BITGET, margin=leverage)
 
             # total_paid_funding = self.get_paid_funding(symbol, pos['timestamp'])
+            if symbol.startswith("SXP"):
+                continue
             total_paid_funding = float(pos['info'].get('totalFee', 0.0))
             position.set_paid_funding(total_paid_funding)
 

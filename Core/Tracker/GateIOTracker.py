@@ -24,6 +24,8 @@ class GateIOTracker:
                                 entry_price=float(pos['entryPrice']), exchange=EXCHANGE.GATE, margin=margin)
             positions.append(position)
             # total_paid_funding = self.get_paid_funding(symbol, pos['timestamp'])
+            if symbol.startswith("SXP"):
+                continue
             total_paid_funding = float(pos['info'].get('pnl_fund', 0.0))
             position.set_paid_funding(total_paid_funding)
 

@@ -34,8 +34,8 @@ BINANCE_FUTURES_BALANCE_LOWER = 50.0
 BINANCE_FUTURES_BALANCE_UPPER = 100.0
 
 # Target short per exchange
-BINANCE_SHORT_QTY = 150  # per exchange
-BITGET_SHORT_QTY = 150
+BINANCE_SHORT_QTY = 15000  # per exchange
+BITGET_SHORT_QTY = 100
 
 POLL_INTERVAL = 30
 
@@ -48,6 +48,10 @@ BINANCE_SECRET  = hedge_config['binance']['api_secret']
 BITGET_API_KEY   = hedge_config.get('bitget', {}).get('api_key')
 BITGET_SECRET    = hedge_config.get('bitget', {}).get('api_secret')
 BITGET_PASSPHRASE= hedge_config.get('bitget', {}).get('password')
+
+BITGET2_API_KEY   = hedge_config.get('bitget2', {}).get('api_key')
+BITGET2_SECRET    = hedge_config.get('bitget2', {}).get('api_secret')
+BITGET2_PASSPHRASE= hedge_config.get('bitget2', {}).get('password')
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(message)s')
 
@@ -84,7 +88,20 @@ async def create_clients():
     })
     await bitget_fut.load_markets()
 
-    return binance_spot, binance_fut, bitget_fut
+    bitget2_fut = ccxtpro.bitget({
+        'apiKey': BITGET2_API_KEY,
+        'secret': BITGET2_SECRET,
+        'password': BITGET2_PASSPHRASE,   # Bitget uses "password" for passphrase in ccxt
+        'enableRateLimit': True,
+        'options': {
+            'defaultType': 'swap',      # USDT-M perpetuals
+            # 'marginMode': 'cross',    # set if needed
+            # 'hedgeMode': False,       # Bitget supports One-way/Hedge; ensure it matches your account
+        }
+    })
+    await bitget2_fut.load_markets()
+
+    return binance_spot, binance_fut, bitget_fut, bitget2_fut
 
 async def get_current_short_contracts(ex, symbol: str) -> float:
     """Return absolute short contracts on given symbol (USDT-M perpetual)."""
@@ -233,9 +250,10 @@ async def main():
     binance_spot, binance_fut, bitget_fut = await create_clients()
 
     tasks = [
-        # asyncio.create_task(futures_collateral_watcher(binance_spot, binance_fut)),
+        asyncio.create_task(futures_collateral_watcher(binance_spot, binance_fut)),
         asyncio.create_task(binance_positions_listener_and_rebalancer(binance_fut)),
-        # asyncio.create_task(bitget_positions_listener_and_rebalancer(bitget_fut)),
+        asyncio.create_task(bitget_positions_listener_and_rebalancer(bitget_fut)),
+        asyncio.create_task(bitget_positions_listener_and_rebalancer(bitget2_fut)),
     ]
     await asyncio.gather(*tasks)
 
