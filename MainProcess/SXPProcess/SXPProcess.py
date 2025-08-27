@@ -27,6 +27,8 @@ import json
 import ccxt.pro as ccxtpro
 import ccxt.async_support as ccxt
 
+from Define import root_path
+
 SYMBOL_PERP_CCXT = 'SXP/USDT:USDT'
 
 # Binance futures collateral thresholds
@@ -39,7 +41,7 @@ BITGET_SHORT_QTY = 100
 
 POLL_INTERVAL = 30
 
-with open(r'C:\job\dim\fr_bot\code\_settings\hedge.json', 'r') as f:
+with open(rf'{root_path}/code/_settings/hedge.json', 'r') as f:
     hedge_config = json.load(f)
 
 BINANCE_API_KEY = hedge_config['binance']['api_key']
@@ -247,12 +249,12 @@ async def bitget_positions_listener_and_rebalancer(bitget_fut):
             logging.error(f"[bitget] positions_listener error: {e}")
 
 async def main():
-    binance_spot, binance_fut, bitget_fut = await create_clients()
+    binance_spot, binance_fut, bitget_fut, bitget2_fut = await create_clients()
 
     tasks = [
-        asyncio.create_task(futures_collateral_watcher(binance_spot, binance_fut)),
-        asyncio.create_task(binance_positions_listener_and_rebalancer(binance_fut)),
-        asyncio.create_task(bitget_positions_listener_and_rebalancer(bitget_fut)),
+        # asyncio.create_task(futures_collateral_watcher(binance_spot, binance_fut)),
+        # asyncio.create_task(binance_positions_listener_and_rebalancer(binance_fut)),
+        # asyncio.create_task(bitget_positions_listener_and_rebalancer(bitget_fut)),
         asyncio.create_task(bitget_positions_listener_and_rebalancer(bitget2_fut)),
     ]
     await asyncio.gather(*tasks)
