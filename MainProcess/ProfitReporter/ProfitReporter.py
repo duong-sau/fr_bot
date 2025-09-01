@@ -79,6 +79,10 @@ def main_function():
         # Gộp dữ liệu
         if 'current_profit' in df_old.columns:
             df_old = df_old.drop(columns=['current_profit'])
+        if col_bitget in df_old.columns:
+            df_old = df_old.drop(columns=[col_bitget])
+        if col_gate in df_old.columns:
+            df_old = df_old.drop(columns=[col_gate])
         df_all = df_old.join(df_today[[col_bitget, col_gate, 'current_profit']], how='outer')
 
         # Update nếu cột hôm nay đã tồn tại

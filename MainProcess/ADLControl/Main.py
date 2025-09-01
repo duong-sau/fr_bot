@@ -137,14 +137,17 @@ class ADLController:
                 time.sleep(1)
 
     async def main(self):
-
-        with open(f"{root_path}/code/_settings/symbols.txt", 'r', encoding='utf-8') as file:
-            lines = file.readlines()
-        symbols = [line.strip() + "/USDT:USDT" for line in lines if line.strip()]
-        print(f"Start with symbols size: {len(symbols)}")
+        await self.gate_pro.load_markets()
+        positions = await self.gate_pro.watch_positions()
+        open_symbols = [p['symbol'] for p in positions if float(p.get('contracts', 0)) > 0]
+        with open(f"{root_path}/code/_settings/symbols.txt", 'w', encoding='utf-8') as file:
+            for sym in open_symbols:
+                file.write(f"{sym}\n")
+        print(f"Start Adl with symbols: {open_symbols}")
+        print(f"Start with symbols size: {len(open_symbols)}")
         await asyncio.gather(
-            self.sync_hedge(self.gate_pro, symbols),
-            self.sync_hedge(self.bitget_pro, symbols),
+            self.sync_hedge(self.gate_pro, open_symbols),
+            self.sync_hedge(self.bitget_pro, open_symbols),
         )
 
 if __name__ == '__main__':
