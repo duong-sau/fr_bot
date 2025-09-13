@@ -53,3 +53,5 @@ transfer_info_path = os.path.join(root_path, "code/_settings", ini_path, "transf
 balance_info_path = os.path.join(root_path, "code/_settings", ini_path,  "balance.json")
 tp_sl_info_path = os.path.join(root_path, "code/_settings", ini_path, "tp_sl.json")
 discord_config_path = os.path.join(root_path, "code/_settings", ini_path, "config.json")
+
+server_config_path = os.path.join(root_path, "code/_settings", "server.json")

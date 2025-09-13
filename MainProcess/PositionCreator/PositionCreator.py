@@ -18,6 +18,10 @@ print(f"Start with symbols size{len(symbols)}")
 
 gate = ccxt.gate()
 bitget = ccxt.bitget()
+borrow_info = bitget.public_get_margin_v1_isolated_public_interestRateAndLimit({
+    "symbol": "BTCUSDT"
+})
+print(borrow_info)
 
 rates = {}
 

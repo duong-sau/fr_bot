@@ -77,8 +77,10 @@ def main_function():
         if 'symbol' in df_old.columns:
             df_old = df_old.set_index('symbol')
         # Gộp dữ liệu
+        if 'last_profit' in df_old.columns:
+            df_old = df_old.drop(columns=['last_profit'])
         if 'current_profit' in df_old.columns:
-            df_old = df_old.drop(columns=['current_profit'])
+            df_old = df_old.rename(columns={'current_profit': 'last_profit'})
         if col_bitget in df_old.columns:
             df_old = df_old.drop(columns=[col_bitget])
         if col_gate in df_old.columns:
@@ -113,8 +115,8 @@ def main_function():
     print(f"Report updated: {file_path} (added columns: {col_bitget}, {col_gate}, current_profit)")
 if __name__ == '__main__':
     main_function()
-    for hour in [9, 13, 17, 21, 1, 5]:
-        schedule.every().day.at(f"{hour:02d}:05").do(main_function)
+    # for hour in [9, 13, 17, 21, 1, 5]:
+    #     schedule.every().day.at(f"{hour:02d}:05").do(main_function)
 
     while True:
         schedule.run_pending()
