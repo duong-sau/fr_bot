@@ -37,7 +37,7 @@ class MicroserviceController:
             print(dt)
             if dt['status'] == 'alive':
                 self.model.status = SERVICE_STATUS.RUNNING.value
-            else
+            else:
                 self.model.status = SERVICE_STATUS.STOPPED.value
             return {"success": True}
         except Exception as e:
