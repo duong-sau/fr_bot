@@ -27,14 +27,31 @@ class StatusController:
     def __init__(self, status_file):
         self.status_file = status_file
         self.status_json = {}
+        self.last_alive = 0
+        self.last_alive_time = time.localtime(time.time())
 
     def reload_status_file(self):
         with open(self.status_file, 'r', encoding='utf-8') as f:
             self.status_json = json.load(f)
+
+        alive_counter = self.status_json.get('alive_counter', 0)
+        if alive_counter != self.last_alive:
+            self.last_alive = alive_counter
+            self.last_alive_time = time.localtime(time.time())
+            self.status_json['last_alive_time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+            self.status_json['status'] = 'alive'
+        elif time.mktime(time.localtime()) - time.mktime(self.last_alive_time) > 10:
+            self.status_json['status'] = 'dead'
+
         return self.status_json
+
 
     def get_status(self):
         return self.status_json
+
+    def get_alive(self):
+        pass
+
 
 class MainController:
     def __init__(self):
@@ -75,3 +92,4 @@ class BotController:
 
     def get_status(self):
         return self.status_controller.get_status()
+

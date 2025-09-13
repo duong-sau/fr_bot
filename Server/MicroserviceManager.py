@@ -17,7 +17,7 @@ class Microservice(BaseModel):
 
 class SERVICE_STATUS(Enum):
     RUNNING = "running"
-    STOPPED = "stoped"
+    STOPPED = "stopped"
 
 
 class MicroserviceController:
@@ -30,13 +30,15 @@ class MicroserviceController:
     def get_model(self):
         return self.model
 
-    def get_error(self):
-        return 0
-
     def ping(self):
         try:
             response = self.stub.Ping(microservices_pb2.PingMessage(client_id=self.model.id))
-            print(response.data)
+            dt = response.data
+            print(dt)
+            if dt['status'] == 'alive':
+                self.model.status = SERVICE_STATUS.RUNNING.value
+            else
+                self.model.status = SERVICE_STATUS.STOPPED.value
             return {"success": True}
         except Exception as e:
             self.model.status = SERVICE_STATUS.STOPPED.value

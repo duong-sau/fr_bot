@@ -1,5 +1,8 @@
 #!/bin/bash
 
+sudo ufw allow 4953/tcp
+sudo ufw status
+
 mkdir fr_bot
 cd fr_bot
 git clone git@github.com:duong-sau/fr_bot.git
