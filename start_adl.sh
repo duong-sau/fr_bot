@@ -8,6 +8,7 @@ cd /home/ubuntu/$BOT_NAME/code
 
 screen -dmS adl_screen
 screen -S adl_screen -X stuff "source .linux_env/bin/activate\n"
+screen -S adl_screen -X stuff "export PYTHONPATH=/home/ubuntu/fr_bot/code\n"
 screen -S adl_screen -X stuff "python MainProcess/ADLControl/Main.py\n"
 
 screen -r adl_screen
