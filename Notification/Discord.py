@@ -5,6 +5,9 @@ import json
 import requests
 from typing import List, Tuple
 
+# Bảo đảm import được module ở thư mục cha (Define, v.v.) khi chạy từ Notification/
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from Define import discord_config_path, shared_log_path
 
 MAX_DISCORD_MESSAGE = 1900  # chừa biên để không vượt 2000 ký tự
@@ -87,7 +90,10 @@ def main():
     else:
         log_file = os.getenv("LOG_FILE", shared_log_path)
 
+    print(f"[INFO] Discord relay starting. Watching: {log_file}")
     webhook_url = load_webhook()
+    if not webhook_url:
+        print("[WARN] webhook_url is empty; messages will not be delivered but process will keep running.")
     session = requests.Session()
 
     # Lần đầu: nếu file tồn tại -> đọc từ cuối file (không spam log cũ)

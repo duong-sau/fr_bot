@@ -7,6 +7,7 @@ from TransferConfig import TransferConfig
 from Core.Define import EXCHANGE
 from Define import tunel_log_path, transfer_done_file, exchange2, exchange1
 from Core.Tool import try_this, write_log
+from Core.Logger import log_info, LogService
 
 
 exchange_manager = ExchangeManager(exchange1, exchange2)
@@ -17,8 +18,8 @@ gate = exchange_manager.gate_exchange
 start_time = time.time()
 
 def tunel_log(message):
-    log_file = os.path.join(tunel_log_path, f"{time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(start_time))}.log")
-    write_log(message, log_file)
+    # Ghi log tập trung: shared.log + logs/tunel/syslog.log
+    log_info(LogService.TUNEL, str(message))
 
 def transfer_swap_to_spot(exchange, amount):
     if exchange == EXCHANGE.BINANCE:

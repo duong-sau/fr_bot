@@ -6,11 +6,22 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List
+from fastapi.middleware.cors import CORSMiddleware
 
 from Server.AppCore import AppCore, Position
 from Server.ServiceManager.MicroserviceManager import Microservice
 
 app = FastAPI()
+
+# CORS for development (React dev server on 3000)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*", "http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app_core = AppCore()
 
 @app.get("/bot1api/microservices", response_model=List[Microservice])

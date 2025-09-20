@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from Server.PositionCreator.PositionCreator import PositionCreator
 from Server.ServiceManager.MicroserviceManager import MicroserviceManager
 from Server.PositionView.PositionView import PositionView
+from Core.Define import convert_exchange_to_name
 
 
 
@@ -57,10 +58,10 @@ class AppCore:
                 amount=pos.long_position.amount_,
                 entry=round(float(pos.long_position.entry_price), 2),
                 unrealpnl=pos.unreal_pnl,
-                funding1=round(float(pos.long_position.funding_fee), 2),
-                funding2=round(float(pos.short_position.funding_fee), 2),
-                exchange1=pos.long_position.exchange,
-                exchange2=pos.short_position.exchange,
+                funding1=round(float(getattr(pos.long_position, 'paid_funding', 0.0)), 2),
+                funding2=round(float(getattr(pos.short_position, 'paid_funding', 0.0)), 2),
+                exchange1=convert_exchange_to_name(pos.long_position.exchange),
+                exchange2=convert_exchange_to_name(pos.short_position.exchange),
             ))
 
         return result

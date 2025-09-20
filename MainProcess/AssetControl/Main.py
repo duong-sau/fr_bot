@@ -12,16 +12,13 @@ import Define
 from Core.Define import EXCHANGE, convert_exchange_to_name
 from Core.AliveServiceClient import AliveServiceClient
 from Define import asset_log_path, transfer_done_file, SERVICE_NAME, root_path, shared_log_path
-from Core.Tool import write_log, step, clear_console
+from Core.Logger import log_info, LogService
 
 start_time = time.time()
 
 def asset_control_log(message):
-    log_file = os.path.join(asset_log_path, f"{time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(start_time))}.log")
-    write_log(message, log_file)
-    sys_log = os.path.join(asset_log_path, 'syslog.log')
-    write_log(message, sys_log)
-    write_log(message, shared_log_path)
+    # Ghi log tập trung: shared.log + logs/asset/syslog.log
+    log_info(LogService.ASSET, str(message))
 
 
 class AssetProcess:
@@ -113,6 +110,7 @@ class AssetProcess:
 
 if __name__ == '__main__':
 
+    from Core.Logger import log_info, LogService
     clear_console()
 
     exchange1 = Define.exchange1
@@ -146,14 +144,6 @@ if __name__ == '__main__':
         while True:
             try:
                 asset_process.tick()
-                # alive_service_client.tick(
-                #     params={'total_balance': asset_process.get_asset_info()['binance'].total_margin_balance + asset_process.get_asset_info()['bitget'].total_margin_balance,
-                #             'bitget_balance': asset_process.get_asset_info()['bitget'].total_margin_balance,
-                #             'gate_balance': asset_process.get_asset_info()['binance'].total_margin_balance,
-                #             'min_asset_transfer': asset_process.get_asset_info()['estimated_min_balance'],
-                #             'in_transfer': asset_process.get_status()}
-                # 
-                # )
             except Exception as e:
                 asset_control_log(f"Error during asset process tick: {e}")
                 time.sleep(5)

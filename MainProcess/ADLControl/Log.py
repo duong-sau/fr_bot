@@ -1,6 +1,5 @@
-from Core.Tool import write_log
-from Define import shared_log_path
+from Core.Logger import log_info, LogService
 
 
 def adl_log(message):
-    write_log(message, shared_log_path)
+    log_info(LogService.ADL, str(message))

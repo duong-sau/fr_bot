@@ -27,6 +27,9 @@ class FrAbitrageCore:
     def check_position(self, positions):
         from collections import defaultdict
 
+        # Rebuild positions fresh each time to avoid duplicates on refresh
+        self.positions = []
+
         symbol_groups = defaultdict(list)
         for pos in positions:
             symbol_groups[pos.symbol].append(pos)

@@ -161,6 +161,40 @@ class DiscordDockerController(MicroserviceController):
 
     def start(self):
         try:
+            # Kiểm tra container tồn tại chưa
+            result = subprocess.run([
+                "docker", "inspect", "discord_shared_container"
+            ], capture_output=True, text=True)
+            need_create = False
+            if result.returncode == 0:
+                mounts = subprocess.run([
+                    "docker", "inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "discord_shared_container"
+                ], capture_output=True, text=True)
+                destinations = mounts.stdout.strip().splitlines()
+                if "/app/logs" not in destinations and "/home/ubuntu/fr_bot/logs" not in destinations:
+                    subprocess.run(["docker", "stop", "discord_shared_container"], check=False)
+                    subprocess.run(["docker", "rm", "discord_shared_container"], check=True)
+                    need_create = True
+            else:
+                need_create = True
+
+            if need_create:
+                # Đảm bảo image tồn tại, nếu chưa có thì build
+                img = subprocess.run(["docker", "images", "-q", "discord_shared_image"], capture_output=True, text=True)
+                if img.returncode != 0 or not img.stdout.strip():
+                    build = subprocess.run(["docker", "build", "-f", "Notification/DiscordDockerfile", "-t", "discord_shared_image", "."], capture_output=True, text=True)
+                    if build.returncode != 0:
+                        return {"error": f"Failed to build discord image: {build.stderr}"}
+                # Tạo container kèm volume log
+                create = subprocess.run([
+                    "docker", "create",
+                    "--name", "discord_shared_container",
+                    "-v", "frbot_logs:/app/logs",
+                    "discord_shared_image"
+                ], capture_output=True, text=True)
+                if create.returncode != 0:
+                    return {"error": f"Failed to create container: {create.stderr}"}
+
             subprocess.run(["docker", "start", "discord_shared_container"], check=True)
             self.model.status = SERVICE_STATUS.RUNNING.value
             return {"success": True}
