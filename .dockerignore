@@ -1,11 +1,28 @@
+# VCS
+.git
+.gitignore
+
+# Python caches
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-_ssh/
-.linux_env
-.venv
-.git/
-web-ui/node_modules/
-web-ui/build/
+*.pytest_cache
+.mypy_cache
+
+# Virtual environments
+venv/
+.env/
+.env.local
+
+# Local data/logs
 logs/
+data/
+/home/ubuntu/fr_bot/logs/
+/home/ubuntu/fr_bot/data/
+
+# OS/editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

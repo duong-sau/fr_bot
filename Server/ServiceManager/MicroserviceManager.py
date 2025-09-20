@@ -35,6 +35,14 @@ class MicroserviceController:
         raise NotImplementedError("gRPC microservice is no longer supported.")
 
 
+# Common constants for mounts
+HOST_LOGS = "/home/ubuntu/fr_bot/logs"
+HOST_SETTINGS = "/home/ubuntu/fr_bot/code/_settings"
+IN_CONTAINER_LOGS_NEW = "/home/ubuntu/fr_bot/logs"
+IN_CONTAINER_LOGS_OLD = "/app/logs"
+IN_CONTAINER_SETTINGS_NEW = "/home/ubuntu/fr_bot/code/_settings"
+
+
 class ADLDockerController(MicroserviceController):
     def ping(self):
         try:
@@ -59,8 +67,9 @@ class ADLDockerController(MicroserviceController):
                     "docker", "inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "adlcontrol_container"
                 ], capture_output=True, text=True)
                 destinations = mounts.stdout.strip().splitlines()
-                if "/app/logs" not in destinations and "/home/ubuntu/fr_bot/logs" not in destinations:
-                    # Recreate with volume
+                has_logs = (IN_CONTAINER_LOGS_OLD in destinations) or (IN_CONTAINER_LOGS_NEW in destinations)
+                has_settings = (IN_CONTAINER_SETTINGS_NEW in destinations)
+                if not (has_logs and has_settings):
                     subprocess.run(["docker", "stop", "adlcontrol_container"], check=False)
                     subprocess.run(["docker", "rm", "adlcontrol_container"], check=True)
                     need_create = True
@@ -71,8 +80,9 @@ class ADLDockerController(MicroserviceController):
                 subprocess.run([
                     "docker", "create",
                     "--name", "adlcontrol_container",
-                    "-v", "frbot_logs:/app/logs",
-                    "-v", "frbot_logs:/home/ubuntu/fr_bot/logs",
+                    "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_NEW}",
+                    "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_OLD}",
+                    "-v", f"{HOST_SETTINGS}:{IN_CONTAINER_SETTINGS_NEW}",
                     "adlprocess"
                 ], check=True)
             subprocess.run(["docker", "start", "adlcontrol_container"], check=True)
@@ -115,7 +125,9 @@ class AssetDockerController(MicroserviceController):
                     "docker", "inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "assetcontrol_container"
                 ], capture_output=True, text=True)
                 destinations = mounts.stdout.strip().splitlines()
-                if "/app/logs" not in destinations and "/home/ubuntu/fr_bot/logs" not in destinations:
+                has_logs = (IN_CONTAINER_LOGS_OLD in destinations) or (IN_CONTAINER_LOGS_NEW in destinations)
+                has_settings = (IN_CONTAINER_SETTINGS_NEW in destinations)
+                if not (has_logs and has_settings):
                     subprocess.run(["docker", "stop", "assetcontrol_container"], check=False)
                     subprocess.run(["docker", "rm", "assetcontrol_container"], check=True)
                     need_create = True
@@ -126,8 +138,9 @@ class AssetDockerController(MicroserviceController):
                 subprocess.run([
                     "docker", "create",
                     "--name", "assetcontrol_container",
-                    "-v", "frbot_logs:/app/logs",
-                    "-v", "frbot_logs:/home/ubuntu/fr_bot/logs",
+                    "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_NEW}",
+                    "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_OLD}",
+                    "-v", f"{HOST_SETTINGS}:{IN_CONTAINER_SETTINGS_NEW}",
                     "assetprocess"
                 ], check=True)
             subprocess.run(["docker", "start", "assetcontrol_container"], check=True)
@@ -161,7 +174,6 @@ class DiscordDockerController(MicroserviceController):
 
     def start(self):
         try:
-            # Kiểm tra container tồn tại chưa
             result = subprocess.run([
                 "docker", "inspect", "discord_shared_container"
             ], capture_output=True, text=True)
@@ -171,7 +183,9 @@ class DiscordDockerController(MicroserviceController):
                     "docker", "inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "discord_shared_container"
                 ], capture_output=True, text=True)
                 destinations = mounts.stdout.strip().splitlines()
-                if "/app/logs" not in destinations and "/home/ubuntu/fr_bot/logs" not in destinations:
+                has_logs = (IN_CONTAINER_LOGS_OLD in destinations) or (IN_CONTAINER_LOGS_NEW in destinations)
+                has_settings = (IN_CONTAINER_SETTINGS_NEW in destinations)
+                if not (has_logs and has_settings):
                     subprocess.run(["docker", "stop", "discord_shared_container"], check=False)
                     subprocess.run(["docker", "rm", "discord_shared_container"], check=True)
                     need_create = True
@@ -179,17 +193,17 @@ class DiscordDockerController(MicroserviceController):
                 need_create = True
 
             if need_create:
-                # Đảm bảo image tồn tại, nếu chưa có thì build
                 img = subprocess.run(["docker", "images", "-q", "discord_shared_image"], capture_output=True, text=True)
                 if img.returncode != 0 or not img.stdout.strip():
-                    build = subprocess.run(["docker", "build", "-f", "Notification/DiscordDockerfile", "-t", "discord_shared_image", "."], capture_output=True, text=True)
+                    build = subprocess.run(["docker", "build", "-f", "Notification/Dockerfile", "-t", "discord_shared_image", "."], capture_output=True, text=True)
                     if build.returncode != 0:
                         return {"error": f"Failed to build discord image: {build.stderr}"}
-                # Tạo container kèm volume log
                 create = subprocess.run([
                     "docker", "create",
                     "--name", "discord_shared_container",
-                    "-v", "frbot_logs:/app/logs",
+                    "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_NEW}",
+                    "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_OLD}",
+                    "-v", f"{HOST_SETTINGS}:{IN_CONTAINER_SETTINGS_NEW}",
                     "discord_shared_image"
                 ], capture_output=True, text=True)
                 if create.returncode != 0:

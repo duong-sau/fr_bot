@@ -19,11 +19,7 @@ print(f"argv: {sys.argv}")
 if os.name == "nt":
     root_path = "C:\\job\\dim\\fr_bot\\"
 else:
-    # Prefer /app if running in Docker
-    if os.path.exists("/app/code/_settings/config.txt"):
-        root_path = "/app"
-    else:
-        root_path = "/home/ubuntu/fr_bot"
+     root_path = "/home/ubuntu/fr_bot"
 
 setting_file = os.path.join(root_path, "code/_settings", 'config.txt')
 if not os.path.exists(setting_file):

@@ -1,15 +1,18 @@
 FROM python:3.11-slim
 WORKDIR /home/ubuntu/fr_bot/code
-# Copy the entire project (build context is repo root: $CODE_DIR)
+# Copy entire repo (build context is repo root)
 COPY . /home/ubuntu/fr_bot/code
-# Optional envs for cleaner Python output
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
-# Ensure standard dirs exist inside container and legacy symlinks
+
+# Ensure dirs exist and legacy symlinks
 RUN mkdir -p /home/ubuntu/fr_bot/data /home/ubuntu/fr_bot/logs /app \
     && ln -sfn /home/ubuntu/fr_bot/code /app/code \
     && ln -sfn /home/ubuntu/fr_bot/logs /app/logs
+
 # Install dependencies from repo root
 RUN pip install --no-cache-dir -r /home/ubuntu/fr_bot/code/requirements.txt
-# Start ADL process
-CMD ["python", "MainProcess/ADLControl/Main.py"]
+
+# Start Discord notifier
+CMD ["python", "-u", "Notification/Discord.py", "/home/ubuntu/fr_bot/logs/shared.log"]
