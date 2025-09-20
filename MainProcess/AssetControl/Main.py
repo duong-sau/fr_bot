@@ -11,7 +11,7 @@ from MainProcess.AssetControl.BalanceConfig import max_diff_rate
 import Define
 from Core.Define import EXCHANGE, convert_exchange_to_name
 from Core.AliveServiceClient import AliveServiceClient
-from Define import asset_log_path, transfer_done_file, SERVICE_NAME, root_path
+from Define import asset_log_path, transfer_done_file, SERVICE_NAME, root_path, shared_log_path
 from Core.Tool import write_log, step, clear_console
 
 start_time = time.time()
@@ -21,6 +21,7 @@ def asset_control_log(message):
     write_log(message, log_file)
     sys_log = os.path.join(asset_log_path, 'syslog.log')
     write_log(message, sys_log)
+    write_log(message, shared_log_path)
 
 
 class AssetProcess:

@@ -1,10 +1,14 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List
 
-from Server.AppCore import AppCore
-from Server.MicroserviceManager import Microservice
+from Server.AppCore import AppCore, Position
+from Server.ServiceManager.MicroserviceManager import Microservice
 
 app = FastAPI()
 app_core = AppCore()
@@ -28,31 +32,31 @@ def update_microservice_status(id: str):
         return {"message": f"{id} stopped"}
     raise HTTPException(status_code=404, detail="Microservice not found")
 
-class Position(BaseModel):
-    symbol: str
-    name: str
-    status: str  # "open" or "closed"
 
-positions = [
-    Position(symbol="BTCUSD", name="BTCUSD", status="closed"),
-    Position(symbol="ETHUSD", name="ETHUSD", status="open"),
-]
 @app.get("/bot1api/positions", response_model=List[Position])
 def get_positions():
-    return positions
+    return app_core.get_positions()
 
-class PositionAction(BaseModel):
-    action: str  # "open" or "close"
 
-@app.post("/bot1api/positions/{symbol}")
-def update_position_status(symbol: str, action: PositionAction):
-    for pos in positions:
-        if pos.symbol == symbol:
-            if action.action not in ["open", "close"]:
-                raise HTTPException(status_code=400, detail="Invalid action")
-            pos.status = "open" if action.action == "open" else "closed"
-            return {"message": f"Position {symbol} {action.action}ed"}
-    raise HTTPException(status_code=404, detail="Position not found")
+class PositionPayLoad(BaseModel):
+    symbol: str
+    size: float
+
+@app.post("/bot1api/positions/open")
+def update_position_status(payload: PositionPayLoad):
+    result, e = app_core.open_position(payload.symbol, payload.size)
+    if not result:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"message": f"Position on {payload.symbol} opened"}
+
+
+@app.post("/bot1api/positions/estimate")
+def estimate_position_status(payload: PositionPayLoad):
+    result, e = app_core.estimate_position(payload.symbol, payload.size)
+    if not result:
+        raise HTTPException(status_code=400, detail=str(e))
+    return e
+
 
 if __name__ == "__main__":
     uvicorn.run("App:app", host="127.0.0.1", port=8000, reload=True)

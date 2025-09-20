@@ -10,6 +10,9 @@ mv fr_bot code
 mkdir data
 mkdir logs
 
+mkdir logs/asset
+mkdir logs/tunel
+
 cd code
 sudo apt-get update -y
 sudo apt-get install python3-venv -y

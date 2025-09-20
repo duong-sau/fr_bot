@@ -19,7 +19,11 @@ print(f"argv: {sys.argv}")
 if os.name == "nt":
     root_path = "C:\\job\\dim\\fr_bot\\"
 else:
-    root_path = "/home/ubuntu/fr_bot"
+    # Prefer /app if running in Docker
+    if os.path.exists("/app/code/_settings/config.txt"):
+        root_path = "/app"
+    else:
+        root_path = "/home/ubuntu/fr_bot"
 
 setting_file = os.path.join(root_path, "code/_settings", 'config.txt')
 if not os.path.exists(setting_file):
@@ -55,3 +59,5 @@ tp_sl_info_path = os.path.join(root_path, "code/_settings", ini_path, "tp_sl.jso
 discord_config_path = os.path.join(root_path, "code/_settings", ini_path, "config.json")
 
 server_config_path = os.path.join(root_path, "code/_settings", "server.json")
+
+shared_log_path = os.path.join(log_path, "shared.log")

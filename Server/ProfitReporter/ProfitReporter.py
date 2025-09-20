@@ -1,16 +1,14 @@
-import csv
 import sys
 import time
 from datetime import datetime
 
-import ccxt
 import os
 import pandas as pd
 import schedule
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from MainProcess.PositionView.FrAbitrageCore import FrAbitrageCore
+from Server.PositionView.FrAbitrageCore import FrAbitrageCore
 from Core.Exchange.Exchange import ExchangeManager
 from Core.Tracker.BitgetTracker import BitgetTracker
 from Core.Tracker.GateIOTracker import GateIOTracker

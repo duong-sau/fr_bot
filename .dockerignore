@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+_ssh/
+.linux_env
+.venv
