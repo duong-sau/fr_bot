@@ -25,6 +25,8 @@ HOST_SETTINGS_DIR="$CODE_DIR/_settings"
 APP_MODULE="${APP_MODULE:-Server.App:app}"
 APP_PORT="${APP_PORT:-8000}"
 SYSTEMD_UNIT="frbot-server.service"
+# Shared logs volume for all containers
+LOGS_VOLUME="${LOGS_VOLUME:-frbot_logs}"
 # ------------------------
 
 require_ubuntu() {
@@ -62,6 +64,11 @@ install_docker() {
     sudo systemctl start docker
     sudo usermod -aG docker "$USER" || true
   fi
+}
+
+ensure_logs_volume() {
+  echo "[INFO] Ensuring shared logs volume: $LOGS_VOLUME"
+  sudo docker volume create "$LOGS_VOLUME" >/dev/null
 }
 
 install_python() {
@@ -156,6 +163,7 @@ EOF
 
 build_images_microservices() {
   install_docker
+  ensure_logs_volume
   echo "[INFO] Building microservice images (server image disabled)..."
   sudo docker build -f "$CODE_DIR/MainProcess/ADLControl/Dockerfile" -t "$IMAGE_ADL" "$CODE_DIR"
   sudo docker build -f "$CODE_DIR/MainProcess/AssetControl/Dockerfile" -t "$IMAGE_ASSET" "$CODE_DIR"
@@ -167,19 +175,23 @@ recreate_containers_microservices() {
   sudo docker rm -f "$CONTAINER_ADL" "$CONTAINER_ASSET" "$CONTAINER_DISCORD" 2>/dev/null || true
 
   echo "[INFO] Creating microservice containers (ADL/Asset stopped by default, Discord started)"
+  # Mount shared logs volume to both new and legacy paths inside containers.
   sudo docker create --name "$CONTAINER_ADL" \
-    -v "$LOG_DIR":/home/ubuntu/fr_bot/logs \
+    -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
+    -v "$LOGS_VOLUME":/app/logs \
     -v "$HOST_SETTINGS_DIR":/home/ubuntu/fr_bot/code/_settings \
     "$IMAGE_ADL"
 
   sudo docker create --name "$CONTAINER_ASSET" \
-    -v "$LOG_DIR":/home/ubuntu/fr_bot/logs \
+    -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
+    -v "$LOGS_VOLUME":/app/logs \
     -v "$HOST_SETTINGS_DIR":/home/ubuntu/fr_bot/code/_settings \
     "$IMAGE_ASSET"
 
   sudo docker run -d --name "$CONTAINER_DISCORD" \
     --restart unless-stopped \
-    -v "$LOG_DIR":/home/ubuntu/fr_bot/logs \
+    -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
+    -v "$LOGS_VOLUME":/app/logs \
     -v "$HOST_SETTINGS_DIR":/home/ubuntu/fr_bot/code/_settings \
     "$IMAGE_DISCORD"
 }
@@ -194,6 +206,8 @@ post_checks() {
   fi
   echo "[INFO] Docker containers:"
   sudo docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+  echo "[INFO] Docker volumes:"
+  sudo docker volume ls | grep -E "(VOLUME|$LOGS_VOLUME)" || true
 }
 
 main() {
@@ -210,7 +224,7 @@ main() {
   build_images_microservices
   recreate_containers_microservices
   post_checks
-  echo "[DONE] Server: http://<server-ip>:$APP_PORT  Code: '$CODE_DIR'  Logs: '$LOG_DIR'  Data: '$DATA_DIR'"
+  echo "[DONE] Server: http://<server-ip>:$APP_PORT  Code: '$CODE_DIR'  Logs Volume: '$LOGS_VOLUME'  Data: '$DATA_DIR'"
 }
 
 main "$@"
