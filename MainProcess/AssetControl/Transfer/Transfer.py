@@ -5,9 +5,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 from Core.Exchange.Exchange import ExchangeManager
 from TransferConfig import TransferConfig
 from Core.Define import EXCHANGE
-from Define import tunel_log_path, transfer_done_file, exchange2, exchange1
-from Core.Tool import try_this, write_log
-from Core.Logger import log_info, LogService
+from Define import transfer_done_file, exchange2, exchange1
+from Core.Tool import try_this
+from Core.Logger import log_info, LogService, LogTarget
 
 
 exchange_manager = ExchangeManager(exchange1, exchange2)
@@ -17,9 +17,11 @@ gate = exchange_manager.gate_exchange
 
 start_time = time.time()
 
+
 def tunel_log(message):
-    # Ghi log tập trung: shared.log + logs/tunel/syslog.log
-    log_info(LogService.TUNEL, str(message))
+    # Chỉ ghi vào service log (logs/tunel/syslog.log); không ghi shared, không ghi Discord
+    log_info(LogService.TUNEL, str(message), target=LogTarget.SERVICE)
+
 
 def transfer_swap_to_spot(exchange, amount):
     if exchange == EXCHANGE.BINANCE:
@@ -33,6 +35,7 @@ def transfer_swap_to_spot(exchange, amount):
         tunel_log("Gate is unified account, no need to transfer from swap to spot.")
     else:
         raise ValueError("Unsupported exchange for transfer to spot account.")
+
 
 def with_draw_from_spot(f_exchange, t_exchange, amount):
     if f_exchange == EXCHANGE.BINANCE and t_exchange == EXCHANGE.BITGET:
@@ -64,6 +67,7 @@ def with_draw_from_spot(f_exchange, t_exchange, amount):
     else:
         raise ValueError("Unsupported exchange for withdrawal from spot account.")
 
+
 def get_withdrawal_txid(exchange, order_id):
     """
     Get the transaction ID of a withdrawal by its order ID.
@@ -90,6 +94,7 @@ def get_withdrawal_txid(exchange, order_id):
             return item.get('txid', None)
     raise Exception("Withdrawal with the given order ID not found.")
 
+
 def get_withdraw_txid(order_id):
     """
     Get the transaction ID of a withdrawal by its order ID.
@@ -107,6 +112,7 @@ def get_withdraw_txid(order_id):
         raise Exception("Withdrawal with the given order ID not found.")
     except Exception as e:
         raise Exception(f"Error fetching withdrawal txid: {e}")
+
 
 def wait_for_desposit(exchange, txid):
     """
@@ -131,6 +137,7 @@ def wait_for_desposit(exchange, txid):
         raise Exception(f"Deposit with txid {txid} not found.")
     except Exception as e:
         raise Exception(f"Error fetching deposits: {e}")
+
 
 def transfer_spot_to_swap(exchange, amount):
     """
