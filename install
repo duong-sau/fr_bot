@@ -13,8 +13,8 @@ CODE_DIR="$APP_ROOT/code"
 LOG_DIR="$APP_ROOT/logs"
 DATA_DIR="$APP_ROOT/data"
 VENV_DIR="$APP_ROOT/venv"
-GIT_REPO="${GIT_REPO:-}"
-GIT_REF="${GIT_REF:-main}"
+GIT_REPO="${GIT_REPO:-git@github.com:duong-sau/fr_bot.git}"
+GIT_REF="${GIT_REF:-master}"
 IMAGE_ADL="${IMAGE_ADL:-adlprocess}"
 IMAGE_ASSET="${IMAGE_ASSET:-assetprocess}"
 IMAGE_DISCORD="${IMAGE_DISCORD:-discord_shared_image}"
@@ -57,8 +57,7 @@ install_docker() {
   if ! command -v docker >/dev/null 2>&1; then
     echo "[INFO] Installing Docker..."
     sudo apt-get update -y
-    sudo apt-get install -y ca-certificates curl gnupg lsb-release
-    sudo apt-get install -y docker.io docker-compose-plugin
+    sudo apt-get install -y docker.io
     sudo systemctl enable docker
     sudo systemctl start docker
     sudo usermod -aG docker "$USER" || true
