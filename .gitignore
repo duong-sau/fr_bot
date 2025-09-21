@@ -51,3 +51,5 @@ web-ui/.next/
 
 # Git metadata should NOT be ignored (remove `.git/` if present)
 # .git/
+
+_settings
