@@ -26,7 +26,6 @@ APP_MODULE="${APP_MODULE:-Server.App:app}"
 APP_PORT="${APP_PORT:-8000}"
 SYSTEMD_UNIT="frbot-server.service"
 # Shared logs volume for all containers
-LOGS_VOLUME="${LOGS_VOLUME:-frbot_logs}"
 # ------------------------
 
 require_ubuntu() {
@@ -69,10 +68,8 @@ install_docker() {
 ensure_logs_volume() {
   echo "[INFO] Ensuring shared logs volume: $LOGS_VOLUME"
   sudo docker volume create "$LOGS_VOLUME" >/dev/null
-}
-
-install_python() {
-  echo "[INFO] Ensuring Python toolchain..."
+  echo "[INFO] Ensuring shared logs volume: $LOGS_VOLUME"
+  sudo docker volume create "$LOGS_VOLUME" >/dev/null
   sudo apt-get update -y
   sudo apt-get install -y python3 python3-venv python3-pip build-essential
 }
@@ -179,31 +176,23 @@ recreate_containers_microservices() {
   sudo docker create --name "$CONTAINER_ADL" \
     -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
     -v "$LOGS_VOLUME":/app/logs \
-    -v "$HOST_SETTINGS_DIR":/home/ubuntu/fr_bot/code/_settings \
-    "$IMAGE_ADL"
-
-  sudo docker create --name "$CONTAINER_ASSET" \
+  # Mount shared logs volume to both new and legacy paths inside containers.
+  sudo docker run -d --name "$CONTAINER_DISCORD" \
     -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
     -v "$LOGS_VOLUME":/app/logs \
-    -v "$HOST_SETTINGS_DIR":/home/ubuntu/fr_bot/code/_settings \
-    "$IMAGE_ASSET"
-
-  sudo docker run -d --name "$CONTAINER_DISCORD" \
-    --restart unless-stopped \
-    -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
     -v "$LOGS_VOLUME":/app/logs \
     -v "$HOST_SETTINGS_DIR":/home/ubuntu/fr_bot/code/_settings \
     "$IMAGE_DISCORD"
 }
-
-post_checks() {
+    -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
+    -v "$LOGS_VOLUME":/app/logs \
   echo "[INFO] systemd service listening on :$APP_PORT"
   if command -v curl >/dev/null 2>&1; then
     sleep 2
     echo "[INFO] Health check (if implemented):"
     curl -sf "http://127.0.0.1:${APP_PORT}/bot1api/microservices" || true
-    echo
-  fi
+    -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
+    -v "$LOGS_VOLUME":/app/logs \
   echo "[INFO] Docker containers:"
   sudo docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
   echo "[INFO] Docker volumes:"
