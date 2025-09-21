@@ -57,3 +57,4 @@ discord_config_path = os.path.join(root_path, "code/_settings", ini_path, "confi
 server_config_path = os.path.join(root_path, "code/_settings", "server.json")
 
 shared_log_path = os.path.join(log_path, "shared.log")
+discord_simple_log_path = os.path.join(log_path, "discord_simple.log")

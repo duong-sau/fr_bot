@@ -14,5 +14,5 @@ RUN mkdir -p /home/ubuntu/fr_bot/data /home/ubuntu/fr_bot/logs /app \
 # Install dependencies from repo root
 RUN pip install --no-cache-dir -r /home/ubuntu/fr_bot/code/requirements.txt
 
-# Start Discord notifier
-CMD ["python", "-u", "Notification/Discord.py", "/home/ubuntu/fr_bot/logs/shared.log"]
+# Start Discord notifier (default reads discord_simple_log_path; override via LOG_FILE env)
+CMD ["python", "-u", "Notification/Discord.py"]

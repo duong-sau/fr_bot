@@ -8,9 +8,9 @@ from typing import List, Tuple
 # Bảo đảm import được module ở thư mục cha (Define, v.v.) khi chạy từ Notification/
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from Define import discord_config_path, shared_log_path
+from Define import discord_config_path, shared_log_path, discord_simple_log_path
 
-MAX_DISCORD_MESSAGE = 1900  # chừa biên để không vượt 2000 ký tự
+MAX_DISCORD_MESSAGE = 1900  # chứa biên để không vượt 2000 ký tự
 DEFAULT_INTERVAL = int(os.getenv("LOG_INTERVAL", "5"))
 
 
@@ -83,12 +83,12 @@ def read_new_lines(log_file: str, last_size: int) -> Tuple[List[str], int]:
 
 
 def main():
-    # Xác định log_file: ưu tiên argv[1], sau đó env LOG_FILE, cuối cùng shared_log_path
+    # Ưu tiên argv[1], sau đó env LOG_FILE, cuối cùng dùng discord_simple_log_path (đơn giản, INFO+)
     log_file = None
     if len(sys.argv) >= 2:
         log_file = sys.argv[1]
     else:
-        log_file = os.getenv("LOG_FILE", shared_log_path)
+        log_file = os.getenv("LOG_FILE", discord_simple_log_path)
 
     print(f"[INFO] Discord relay starting. Watching: {log_file}")
     webhook_url = load_webhook()
