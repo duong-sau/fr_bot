@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import time
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 from Core.Exchange.Exchange import ExchangeManager
@@ -9,6 +10,7 @@ from Core.Tracker.BitgetTracker import BitgetTracker
 from Core.Tracker.GateIOTracker import GateIOTracker
 from MainProcess.AssetControl.BalanceConfig import max_diff_rate
 import Define
+from Core.Tool import step, clear_console
 from Core.Define import EXCHANGE, convert_exchange_to_name
 from Core.AliveServiceClient import AliveServiceClient
 from Define import asset_log_path, transfer_done_file, SERVICE_NAME, root_path, shared_log_path
@@ -110,7 +112,6 @@ class AssetProcess:
 
 if __name__ == '__main__':
 
-    from Core.Logger import log_info, LogService
     clear_console()
 
     exchange1 = Define.exchange1
