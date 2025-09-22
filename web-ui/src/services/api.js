@@ -1,13 +1,46 @@
 import axios from 'axios';
 import config from '../config';
+import {
+  getActiveBaseUrl,
+  getServers as getStoredServers,
+  setActiveServer as setStoredActive,
+  setServerUrl as setStoredServerUrl
+} from './apiConfig';
 
+// Create axios instance with dynamic baseURL
 const api = axios.create({
-  baseURL: config.API_BASE_URL,
+  baseURL: getActiveBaseUrl(config.API_BASE_URL),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   }
 });
+
+// Helper to refresh axios baseURL after settings change
+export function refreshApiBaseUrl() {
+  api.defaults.baseURL = getActiveBaseUrl(config.API_BASE_URL);
+  return api.defaults.baseURL;
+}
+
+// Expose settings helpers to UI
+export function getServers() {
+  return getStoredServers(config.API_BASE_URL);
+}
+
+export function setActiveServer(key) {
+  setStoredActive(key);
+  return refreshApiBaseUrl();
+}
+
+export function setServerUrl(key, url) {
+  const normalized = setStoredServerUrl(key, url);
+  // If updating currently active server, refresh baseURL
+  const { active } = getStoredServers(config.API_BASE_URL);
+  if (active === key) {
+    refreshApiBaseUrl();
+  }
+  return normalized;
+}
 
 // API service functions
 export const apiService = {

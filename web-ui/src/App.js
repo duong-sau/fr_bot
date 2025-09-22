@@ -1,14 +1,17 @@
 import React from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Layout, Menu } from 'antd';
+import { Layout, Menu, Tag } from 'antd';
 import {
   DashboardOutlined,
   ControlOutlined,
-  PlusOutlined
+  PlusOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
 import PositionManagement from './pages/PositionManagement';
 import MicroserviceControl from './pages/MicroserviceControl';
 import OrderEntry from './pages/OrderEntry';
+import Settings from './pages/Settings';
+import { getServers } from './services/api';
 import './App.css';
 
 const { Header, Content, Sider } = Layout;
@@ -21,12 +24,14 @@ function App() {
     positions: '/positions',
     microservices: '/microservices',
     orders: '/orders',
+    settings: '/settings',
   };
 
   const pathToKey = {
     '/positions': 'positions',
     '/microservices': 'microservices',
     '/orders': 'orders',
+    '/settings': 'settings',
   };
 
   const selectedKey = pathToKey[location.pathname] || 'positions';
@@ -47,6 +52,11 @@ function App() {
       icon: <PlusOutlined />,
       label: 'Vào lệnh',
     },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: 'Cài đặt',
+    },
   ];
 
   const handleMenuClick = ({ key }) => {
@@ -57,6 +67,12 @@ function App() {
   };
 
   const headerTitle = menuItems.find(item => item.key === selectedKey)?.label || 'FR Bot Control';
+
+  const servers = getServers();
+  let currentBase = servers.A;
+  if (servers.active === 'B') currentBase = servers.B;
+  if (servers.active === 'C') currentBase = servers.C;
+  if (servers.active === 'D') currentBase = servers.D;
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -91,6 +107,11 @@ function App() {
           <h2 style={{ margin: 0 }}>
             {headerTitle}
           </h2>
+          <div style={{ marginLeft: 'auto' }}>
+            <Tag color="geekblue" onClick={() => navigate('/settings')} style={{ cursor: 'pointer' }}>
+              Server {servers.active}: {currentBase || 'N/A'}
+            </Tag>
+          </div>
         </Header>
 
         <Content style={{
@@ -103,6 +124,7 @@ function App() {
             <Route path="/positions" element={<PositionManagement />} />
             <Route path="/microservices" element={<MicroserviceControl />} />
             <Route path="/orders" element={<OrderEntry />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/" element={<Navigate to="/positions" replace />} />
           </Routes>
         </Content>
