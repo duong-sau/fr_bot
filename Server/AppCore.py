@@ -95,15 +95,18 @@ class AppCore:
         return internal_symbol
 
     def _to_gate_symbol(self, internal_symbol: str) -> str:
-        # internal like BTCUSDT -> BTC/USDT
+        # Gate USDT-margined perpetuals use BASE/USDT:USDT in ccxt
         if internal_symbol.endswith('USDT') and '/' not in internal_symbol:
             base = internal_symbol[:-4]
-            return f"{base}/USDT"
+            return f"{base}/USDT:USDT"
+        # If already a pair without :USDT, append it to force swap contract
+        if "/USDT" in internal_symbol and ":USDT" not in internal_symbol:
+            return internal_symbol + ":USDT"
         return internal_symbol
 
     def _normalize_swap_symbol(self, symbol: str) -> str:
         """Return a swap contract symbol like BTC/USDT:USDT if not already normalized."""
-        if '/' in symbol:
+        if '/' in symbol and ':USDT' in symbol:
             return symbol
         if symbol.endswith('USDT'):
             base = symbol[:-4]
@@ -118,13 +121,6 @@ class AppCore:
         self.position_manager.refresh()
         core_positions = self.position_manager.get_core_positions()
 
-        # Build a set of unique symbols
-        symbols = []
-        for pos in core_positions:
-            sym = pos.long_position.symbol
-            if sym not in symbols:
-                symbols.append(sym)
-
         # Prepare clients
         # Use fresh ccxt instances with proper options, to avoid shared state surprises
         bitget = ccxt.bitget({ 'options': { 'defaultType': 'swap' } })
@@ -133,79 +129,84 @@ class AppCore:
         now_ms = int(_time.time() * 1000)
         ms_3d = 3 * 24 * 60 * 60 * 1000
         ms_7d = 7 * 24 * 60 * 60 * 1000
-        since_7d = now_ms - ms_7d
+
+        def fetch_funding_for(exchange_name: str, internal_symbol: str):
+            next_rate = None
+            recent: list[FundingPoint] = []
+            sum3 = None
+            sum7 = None
+            try:
+                if exchange_name == 'bitget':
+                    sym = self._to_bitget_symbol(internal_symbol)
+                    fr = bitget.fetchFundingRate(sym)
+                    next_rate = float(fr.get('fundingRate')) if fr and fr.get('fundingRate') is not None else None
+                    if not quick:
+                        try:
+                            hist = bitget.fetchFundingRateHistory(sym, limit=10)
+                            def _ts(it):
+                                return int(it.get('timestamp') or it.get('datetime') or 0)
+                            hist = sorted([h for h in hist if h.get('fundingRate') is not None], key=_ts)
+                            for item in hist[-3:]:
+                                ts = _ts(item)
+                                r = float(item.get('fundingRate'))
+                                if ts and r is not None:
+                                    recent.append(FundingPoint(timestamp=ts, rate=r))
+                        except Exception:
+                            pass
+                elif exchange_name == 'gate':
+                    sym = self._to_gate_symbol(internal_symbol)
+                    fr = gate.fetchFundingRate(sym)
+                    next_rate = float(fr.get('fundingRate')) if fr and fr.get('fundingRate') is not None else None
+                    if not quick:
+                        try:
+                            hist = gate.fetchFundingRateHistory(sym, limit=10)
+                            def _tsg(it):
+                                return int(it.get('timestamp') or it.get('datetime') or 0)
+                            hist = sorted([h for h in hist if h.get('fundingRate') is not None], key=_tsg)
+                            for item in hist[-3:]:
+                                ts = _tsg(item)
+                                r = float(item.get('fundingRate'))
+                                if ts and r is not None:
+                                    recent.append(FundingPoint(timestamp=ts, rate=r))
+                        except Exception:
+                            pass
+                # compute sums for compatibility if we have recents
+                if recent:
+                    s3 = 0.0
+                    s7 = 0.0
+                    for p in recent:
+                        if p.timestamp >= now_ms - ms_7d:
+                            s7 += p.rate
+                            if p.timestamp >= now_ms - ms_3d:
+                                s3 += p.rate
+                    sum3 = s3
+                    sum7 = s7
+            except Exception:
+                pass
+            return next_rate, recent, sum3, sum7
 
         # For each arbitrage position, fetch funding data for both exchanges
         output: list[FundingStats] = []
         for arb in core_positions:
             internal_symbol = arb.long_position.symbol
+            ex1 = convert_exchange_to_name(arb.long_position.exchange)
+            ex2 = convert_exchange_to_name(arb.short_position.exchange)
             stats = FundingStats(
                 symbol=internal_symbol,
-                exchange1=convert_exchange_to_name(arb.long_position.exchange),
-                exchange2=convert_exchange_to_name(arb.short_position.exchange),
+                exchange1=ex1,
+                exchange2=ex2,
             )
 
-            # Bitget next funding rate and optionally history
-            try:
-                bg_symbol = self._to_bitget_symbol(internal_symbol)
-                fr_bg = bitget.fetchFundingRate(bg_symbol)
-                rate_bg = float(fr_bg.get('fundingRate')) if fr_bg and fr_bg.get('fundingRate') is not None else None
-                stats.nextRate1 = rate_bg
-                if not quick:
-                    recent_bg = []
-                    try:
-                        hist_bg = bitget.fetchFundingRateHistory(bg_symbol, since=since_7d, limit=200)
-                        for item in hist_bg[-12:]:  # last up to 12 entries (~2 days if 4h intervals), but we requested 7d
-                            ts = int(item.get('timestamp') or item.get('datetime') or 0)
-                            r = float(item.get('fundingRate')) if item.get('fundingRate') is not None else None
-                            if ts and r is not None:
-                                recent_bg.append(FundingPoint(timestamp=ts, rate=r))
-                    except Exception:
-                        pass
-                    stats.recent1 = recent_bg
-                    # Sums within 3d and 7d
-                    sum3 = 0.0
-                    sum7 = 0.0
-                    for p in recent_bg:
-                        if p.timestamp >= now_ms - ms_7d:
-                            sum7 += p.rate
-                            if p.timestamp >= now_ms - ms_3d:
-                                sum3 += p.rate
-                    stats.sumRate3d1 = sum3
-                    stats.sumRate7d1 = sum7
-            except Exception:
-                pass
-
-            # Gate next funding rate and optionally history
-            try:
-                gt_symbol = self._to_gate_symbol(internal_symbol)
-                fr_gt = gate.fetchFundingRate(gt_symbol)
-                rate_gt = float(fr_gt.get('fundingRate')) if fr_gt and fr_gt.get('fundingRate') is not None else None
-                stats.nextRate2 = rate_gt
-                if not quick:
-                    recent_gt = []
-                    try:
-                        hist_gt = gate.fetchFundingRateHistory(gt_symbol, since=since_7d, limit=200)
-                        for item in hist_gt[-12:]:
-                            ts = int(item.get('timestamp') or item.get('datetime') or 0)
-                            r = float(item.get('fundingRate')) if item.get('fundingRate') is not None else None
-                            if ts and r is not None:
-                                recent_gt.append(FundingPoint(timestamp=ts, rate=r))
-                    except Exception:
-                        pass
-                    stats.recent2 = recent_gt
-                    # Sums within 3d and 7d
-                    sum3 = 0.0
-                    sum7 = 0.0
-                    for p in recent_gt:
-                        if p.timestamp >= now_ms - ms_7d:
-                            sum7 += p.rate
-                            if p.timestamp >= now_ms - ms_3d:
-                                sum3 += p.rate
-                    stats.sumRate3d2 = sum3
-                    stats.sumRate7d2 = sum7
-            except Exception:
-                pass
+            n1, r1, s3_1, s7_1 = fetch_funding_for(ex1, internal_symbol)
+            n2, r2, s3_2, s7_2 = fetch_funding_for(ex2, internal_symbol)
+            stats.nextRate1 = n1
+            stats.recent1 = r1
+            stats.sumRate3d1 = s3_1
+            stats.sumRate7d1 = s7_1
+            stats.nextRate2 = n2
+            stats.recent2 = r2
+            stats.sumRate3d2 = s3_2
+            stats.sumRate7d2 = s7_2
 
             output.append(stats)
 

@@ -104,9 +104,9 @@ export const apiService = {
 
   // Funding stats
   getFundingStats: async () => {
-    // Use quick mode to avoid long history calls and increase timeout for this call
+    // Request full funding data (next + recent). Backend remains resilient.
     const response = await api.get(config.endpoints.funding, {
-      params: { quick: true },
+      // no quick=true, we want recent history
       timeout: 20000
     });
     return response.data;
