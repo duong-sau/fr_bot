@@ -15,34 +15,24 @@ const PositionManagement = () => {
       render: (text) => <strong>{text}</strong>
     },
     {
-      title: 'Size',
+      title: 'Size (USDT)',
       dataIndex: 'amount',
       key: 'amount',
-      render: (amount) => `${amount.toFixed(4)}`
+      render: (amount) => `$${Number(amount || 0).toFixed(2)}`
     },
     {
       title: 'Entry Price',
       dataIndex: 'entry',
       key: 'entry',
-      render: (price) => `$${price.toFixed(4)}`
-    },
-    {
-      title: 'Unrealized PnL',
-      dataIndex: 'unrealpnl',
-      key: 'unrealpnl',
-      render: (pnl) => (
-        <Tag color={pnl >= 0 ? 'green' : 'red'}>
-          ${pnl.toFixed(2)}
-        </Tag>
-      )
+      render: (price) => `$${Number(price || 0).toFixed(4)}`
     },
     {
       title: 'Funding 1',
       dataIndex: 'funding1',
       key: 'funding1',
       render: (funding) => (
-        <Tag color={funding >= 0 ? 'green' : 'red'}>
-          ${funding.toFixed(4)}
+        <Tag color={(funding || 0) >= 0 ? 'green' : 'red'}>
+          ${(Number(funding || 0)).toFixed(4)}
         </Tag>
       )
     },
@@ -51,8 +41,8 @@ const PositionManagement = () => {
       dataIndex: 'funding2',
       key: 'funding2',
       render: (funding) => (
-        <Tag color={funding >= 0 ? 'green' : 'red'}>
-          ${funding.toFixed(4)}
+        <Tag color={(funding || 0) >= 0 ? 'green' : 'red'}>
+          ${(Number(funding || 0)).toFixed(4)}
         </Tag>
       )
     },
@@ -90,9 +80,9 @@ const PositionManagement = () => {
   }, []);
 
   // Calculate totals
-  const totalUnrealizedPnL = positions.reduce((sum, pos) => sum + pos.unrealpnl, 0);
-  const totalFunding1 = positions.reduce((sum, pos) => sum + pos.funding1, 0);
-  const totalFunding2 = positions.reduce((sum, pos) => sum + pos.funding2, 0);
+  const totalFunding1 = positions.reduce((sum, pos) => sum + (pos.funding1 || 0), 0);
+  const totalFunding2 = positions.reduce((sum, pos) => sum + (pos.funding2 || 0), 0);
+  const totalSizeUSDT = positions.reduce((sum, pos) => sum + (pos.amount || 0), 0);
 
   return (
     <div>
@@ -109,10 +99,10 @@ const PositionManagement = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="Tổng Unrealized PnL"
-              value={totalUnrealizedPnL.toFixed(2)}
+              title="Tổng Size (USDT)"
+              value={Number(totalSizeUSDT).toFixed(2)}
               prefix="$"
-              valueStyle={{ color: totalUnrealizedPnL >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: '#1890ff' }}
             />
           </Card>
         </Col>

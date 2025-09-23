@@ -15,7 +15,6 @@ class Position(BaseModel):
     symbol: str
     amount: float
     entry: float
-    unrealpnl: float
     funding1: float
     funding2: float
     exchange1: str = "Bitget"
@@ -70,7 +69,6 @@ class AppCore:
 
     def get_positions(self):
         self.position_manager.refresh()
-        self.position_manager.refresh_unreal_pnl()
         position =  self.position_manager.get_core_positions()
         result = []
         for pos in position:
@@ -78,7 +76,6 @@ class AppCore:
                 symbol=pos.long_position.symbol,
                 amount=pos.long_position.amount_,
                 entry=round(float(pos.long_position.entry_price), 2),
-                unrealpnl=pos.unreal_pnl,
                 funding1=round(float(getattr(pos.long_position, 'paid_funding', 0.0)), 2),
                 funding2=round(float(getattr(pos.short_position, 'paid_funding', 0.0)), 2),
                 exchange1=convert_exchange_to_name(pos.long_position.exchange),
