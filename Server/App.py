@@ -5,11 +5,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from fastapi.middleware.cors import CORSMiddleware
 
-from Server.AppCore import AppCore, Position
+from Server.AppCore import AppCore, Position, FundingStats
 from Server.ServiceManager.MicroserviceManager import Microservice
+from Server.AssetReporter.AssetReporter import AssetReporter
 
 app = FastAPI()
 
@@ -23,6 +24,7 @@ app.add_middleware(
 )
 
 app_core = AppCore()
+asset_reporter = AssetReporter()
 
 @app.get("/bot1api/microservices", response_model=List[Microservice])
 def get_microservices():
@@ -49,6 +51,15 @@ def get_positions():
     return app_core.get_positions()
 
 
+@app.get("/bot1api/funding", response_model=List[FundingStats])
+def get_funding(quick: bool = False):
+    try:
+        return app_core.get_funding_stats(quick=quick)
+    except Exception as e:
+        print(f"[WARN] /bot1api/funding failed: {e}")
+        # Return empty list so UI doesn’t break; details in server log
+        return []
+
 class PositionPayLoad(BaseModel):
     symbol: str
     size: float
@@ -67,6 +78,30 @@ def estimate_position_status(payload: PositionPayLoad):
     if not result:
         raise HTTPException(status_code=400, detail=str(e))
     return e
+
+
+class AssetRecord(BaseModel):
+    timestamp: str
+    side1: float
+    side2: float
+    total: float
+
+@app.get("/bot1api/asset-report", response_model=List[AssetRecord])
+def get_asset_report(limit: Optional[int] = None):
+    data = asset_reporter.get_report(limit=limit)
+    # FastAPI will validate against model
+    return data
+
+# New: get current live balances
+@app.get("/bot1api/asset-report/current", response_model=AssetRecord)
+def get_asset_current():
+    data = asset_reporter.get_current()
+    return data
+
+@app.post("/bot1api/asset-report/snapshot", response_model=AssetRecord)
+def create_asset_snapshot():
+    data = asset_reporter.take_snapshot()
+    return data
 
 
 if __name__ == "__main__":

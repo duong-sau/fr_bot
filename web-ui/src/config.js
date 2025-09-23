@@ -8,7 +8,11 @@ const config = {
     microservices: '/bot1api/microservices',
     positions: '/bot1api/positions',
     positionsOpen: '/bot1api/positions/open',
-    positionsEstimate: '/bot1api/positions/estimate'
+    positionsEstimate: '/bot1api/positions/estimate',
+    assetReport: '/bot1api/asset-report',
+    assetSnapshot: '/bot1api/asset-report/snapshot',
+    assetCurrent: '/bot1api/asset-report/current',
+    funding: '/bot1api/funding'
   }
 };
 

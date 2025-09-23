@@ -80,6 +80,33 @@ export const apiService = {
       size
     });
     return response.data;
+  },
+
+  // Asset report
+  getAssetReport: async (limit) => {
+    const params = typeof limit === 'number' ? { params: { limit } } : {};
+    const response = await api.get(config.endpoints.assetReport, params);
+    return response.data;
+  },
+
+  createAssetSnapshot: async () => {
+    const response = await api.post(config.endpoints.assetSnapshot);
+    return response.data;
+  },
+
+  getAssetCurrent: async () => {
+    const response = await api.get(config.endpoints.assetCurrent);
+    return response.data;
+  },
+
+  // Funding stats
+  getFundingStats: async () => {
+    // Use quick mode to avoid long history calls and increase timeout for this call
+    const response = await api.get(config.endpoints.funding, {
+      params: { quick: true },
+      timeout: 20000
+    });
+    return response.data;
   }
 };
 

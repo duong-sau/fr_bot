@@ -5,12 +5,15 @@ import {
   DashboardOutlined,
   ControlOutlined,
   PlusOutlined,
-  SettingOutlined
+  SettingOutlined,
+  BarChartOutlined
 } from '@ant-design/icons';
 import PositionManagement from './pages/PositionManagement';
 import MicroserviceControl from './pages/MicroserviceControl';
 import OrderEntry from './pages/OrderEntry';
 import Settings from './pages/Settings';
+import AssetReport from './pages/AssetReport';
+import FundingRates from './pages/FundingRates';
 import { getServers } from './services/api';
 import './App.css';
 
@@ -24,6 +27,8 @@ function App() {
     positions: '/positions',
     microservices: '/microservices',
     orders: '/orders',
+    asset: '/asset-report',
+    funding: '/funding',
     settings: '/settings',
   };
 
@@ -31,6 +36,8 @@ function App() {
     '/positions': 'positions',
     '/microservices': 'microservices',
     '/orders': 'orders',
+    '/asset-report': 'asset',
+    '/funding': 'funding',
     '/settings': 'settings',
   };
 
@@ -51,6 +58,16 @@ function App() {
       key: 'orders',
       icon: <PlusOutlined />,
       label: 'Vào lệnh',
+    },
+    {
+      key: 'asset',
+      icon: <BarChartOutlined />,
+      label: 'Báo cáo tài sản',
+    },
+    {
+      key: 'funding',
+      icon: <BarChartOutlined />,
+      label: 'Funding Rates',
     },
     {
       key: 'settings',
@@ -124,6 +141,8 @@ function App() {
             <Route path="/positions" element={<PositionManagement />} />
             <Route path="/microservices" element={<MicroserviceControl />} />
             <Route path="/orders" element={<OrderEntry />} />
+            <Route path="/asset-report" element={<AssetReport />} />
+            <Route path="/funding" element={<FundingRates />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/" element={<Navigate to="/positions" replace />} />
           </Routes>
