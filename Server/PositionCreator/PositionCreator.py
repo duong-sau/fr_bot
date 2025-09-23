@@ -197,6 +197,143 @@ class PositionCreator:
         except Exception:
             return max(cs1 * step1, cs2 * step2)
 
+    def _try_float(self, v):
+        try:
+            if v is None:
+                return None
+            f = float(v)
+            if not (f == f) or f == float('inf') or f == float('-inf'):
+                return None
+            return f
+        except Exception:
+            return None
+
+    def _extract_open_interest_usdt(self, exchange, symbol: str, ticker: dict, price: float, contract_size: float):
+        """Best-effort extraction of Open Interest in USDT.
+        Priority:
+        1) ticker.openInterestValue (already quote notional)
+        2) ticker.openInterest (assumed contracts or base units) * price * contract_size
+        3) vendor-specific info fields
+        4) exchange.fetchOpenInterest if supported
+        Returns float or None.
+        """
+        oi_usdt = None
+        # 1) direct value from ticker
+        if isinstance(ticker, dict):
+            v = ticker.get('openInterestValue')
+            v = self._try_float(v)
+            if v is not None and v > 0:
+                oi_usdt = v
+            if oi_usdt is None:
+                oi = self._try_float(ticker.get('openInterest'))
+                if oi is not None and oi > 0:
+                    # assume oi is in contracts; convert to USDT via price * contractSize
+                    conv = self._try_float(price) and self._try_float(contract_size)
+                    try:
+                        oi_usdt = float(oi) * float(price) * float(contract_size)
+                    except Exception:
+                        oi_usdt = None
+            if oi_usdt is None:
+                info = ticker.get('info') or {}
+                # common vendor info keys for OI notional
+                for key in ('open_interest_value', 'openInterestValue', 'oiValue', 'holdVolValue'):
+                    v2 = self._try_float(info.get(key))
+                    if v2 is not None and v2 > 0:
+                        oi_usdt = v2
+                        break
+                # common vendor info keys for OI amount (contracts/base)
+                if oi_usdt is None:
+                    for key in ('open_interest', 'openInterest', 'oi', 'holdVol'):
+                        oi2 = self._try_float(info.get(key))
+                        if oi2 is not None and oi2 > 0:
+                            try:
+                                oi_usdt = float(oi2) * float(price) * float(contract_size)
+                                break
+                            except Exception:
+                                pass
+        # 4) fetchOpenInterest
+        if oi_usdt is None:
+            try:
+                if isinstance(getattr(exchange, 'has', None), dict) and exchange.has.get('fetchOpenInterest'):
+                    data = exchange.fetchOpenInterest(symbol)
+                    if isinstance(data, dict):
+                        v = self._try_float(data.get('openInterestValue'))
+                        if v is not None and v > 0:
+                            oi_usdt = v
+                        if oi_usdt is None:
+                            oi = self._try_float(data.get('openInterest')) or self._try_float((data.get('info') or {}).get('open_interest'))
+                            if oi is not None and oi > 0:
+                                try:
+                                    oi_usdt = float(oi) * float(price) * float(contract_size)
+                                except Exception:
+                                    oi_usdt = None
+            except Exception:
+                pass
+        return oi_usdt
+
+    def _bitget_open_interest_fallback(self, symbol_usdt_pair: str, price: float, contract_size: float):
+        """Bitget vendor-specific open interest fallback using mix market endpoint.
+        symbol_usdt_pair example: BTCUSDT
+        Returns USDT notional or None.
+        """
+        try:
+            method = getattr(self.bitget, 'publicMixGetMarketOpenInterest', None)
+            if not callable(method):
+                return None
+            params = { 'symbol': symbol_usdt_pair, 'productType': 'USDT-FUTURES' }
+            resp = method(params)
+            data = None
+            if isinstance(resp, dict):
+                data = resp.get('data')
+            if isinstance(data, list) and data:
+                item = data[0] or {}
+                # Try direct notional
+                v = self._try_float(item.get('openInterestValue') or item.get('open_interest_value'))
+                if v is not None and v > 0:
+                    return v
+                # Try contracts amount and convert
+                oi = self._try_float(item.get('openInterest') or item.get('open_interest') or item.get('amount'))
+                if oi is not None and oi > 0:
+                    try:
+                        return float(oi) * float(price) * float(contract_size)
+                    except Exception:
+                        return None
+        except Exception:
+            return None
+        return None
+
+    def _gate_open_interest_fallback(self, market_id: str, price: float, contract_size: float):
+        """Gate.io vendor-specific open interest fallback using futures tickers endpoint with settle=usdt.
+        market_id example: BTC_USDT
+        Returns USDT notional or None.
+        """
+        try:
+            method = getattr(self.gate, 'publicFuturesGetTickers', None)
+            if not callable(method):
+                return None
+            resp = method({ 'settle': 'usdt', 'contract': market_id })
+            rows = None
+            if isinstance(resp, list):
+                rows = resp
+            elif isinstance(resp, dict):
+                rows = resp.get('tickers') or resp.get('data') or []
+            if rows:
+                item = rows[0] or {}
+                # Direct notional if present
+                v = self._try_float(item.get('open_interest_value') or item.get('openInterestValue'))
+                if v is not None and v > 0:
+                    return v
+                # Amount then convert
+                oi = self._try_float(item.get('open_interest') or item.get('openInterest') or item.get('oi'))
+                if oi is not None and oi > 0:
+                    try:
+                        return float(oi) * float(price) * float(contract_size)
+                    except Exception:
+                        return None
+        except Exception:
+            return None
+        return None
+
     def estimate_position(self, symbol, size):
         try:
             # Normalize case first to match exchange market symbols
@@ -209,8 +346,11 @@ class PositionCreator:
             self._ensure_markets()
 
             # Get current price from Bitget and Gate exchanges
-            bitget_price = self.bitget.fetch_ticker(bg_symbol)['last']
-            gate_price = self.gate.fetch_ticker(gt_symbol)['last']
+            # Use full ticker objects to inspect open interest fields
+            bg_ticker = self.bitget.fetch_ticker(bg_symbol)
+            gt_ticker = self.gate.fetch_ticker(gt_symbol)
+            bitget_price = bg_ticker['last']
+            gate_price = gt_ticker['last']
 
             # Load markets for the normalized symbols
             bg_market = None
@@ -229,6 +369,29 @@ class PositionCreator:
             gt_contract_size = self._extract_contract_size(gt_market)
             bg_step = self._extract_amount_step(bg_market)
             gt_step = self._extract_amount_step(gt_market)
+
+            # Compute Open Interest (USDT) best-effort
+            bg_oi_usdt = self._extract_open_interest_usdt(self.bitget, bg_symbol, bg_ticker, bitget_price, bg_contract_size)
+            gt_oi_usdt = self._extract_open_interest_usdt(self.gate, gt_symbol, gt_ticker, gate_price, gt_contract_size)
+
+            # Fallbacks via vendor-specific endpoints if still None
+            if bg_oi_usdt is None:
+                # Build BTCUSDT-like symbol from normalized input
+                try:
+                    base = symbol.split('/')[0].replace(':USDT', '') if '/' in symbol else symbol.replace('USDT', '')
+                    pair = f"{base}USDT"
+                except Exception:
+                    pair = None
+                if pair:
+                    bg_oi_usdt = self._bitget_open_interest_fallback(pair, bitget_price, bg_contract_size)
+            if gt_oi_usdt is None:
+                try:
+                    gt_market = self.gate.market(gt_symbol)
+                    market_id = (gt_market or {}).get('id')
+                except Exception:
+                    market_id = None
+                if market_id:
+                    gt_oi_usdt = self._gate_open_interest_fallback(market_id, gate_price, gt_contract_size)
 
             # Calculate contract counts per side based on notional = size (1x)
             def calc_contracts(sz, px, cs, step):
@@ -273,6 +436,7 @@ class PositionCreator:
                     "contracts": float(contracts_bg_max),
                     "minUsdtFor1Contract": round(min_usdt_bg_1, 4),
                     "minUsdtForMinStep": round(min_usdt_bg_step, 6),
+                    "openInterestUSDT": round(float(bg_oi_usdt), 2) if bg_oi_usdt is not None else None,
                 },
                 "gate": {
                     "exchange": "Gate.io",
@@ -283,6 +447,7 @@ class PositionCreator:
                     "contracts": float(contracts_gt_max),
                     "minUsdtFor1Contract": round(min_usdt_gt_1, 4),
                     "minUsdtForMinStep": round(min_usdt_gt_step, 6),
+                    "openInterestUSDT": round(float(gt_oi_usdt), 2) if gt_oi_usdt is not None else None,
                 },
                 "equal": {
                     "baseStep": float(common_base_step),

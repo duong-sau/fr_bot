@@ -21,16 +21,40 @@ const OrderEntry = () => {
     'EOSUSDT', 'TRXUSDT', 'XRPUSDT', 'ATOMUSDT', 'SOLUSDT'
   ];
 
+  // Helper matchers for exchange naming variations
+  const isGate = (name) => {
+    const n = (name || '').toString().toLowerCase();
+    return n === 'gate' || n === 'gateio' || n === 'gate_io' || n === 'gate.io';
+  };
+  const isBitget = (name) => {
+    const n = (name || '').toString().toLowerCase();
+    return n === 'bitget' || n.startsWith('bitget'); // covers bitget_sub, etc.
+  };
+
+  // Normalize user input to a USDT pair if missing (e.g., "ETH" -> "ETHUSDT")
+  const normalizeSymbol = (sym) => {
+    const s = (sym || '').trim().toUpperCase();
+    if (!s) return s;
+    // If already in a pair format or contains quote info, keep as-is
+    if (s.includes('/') || s.includes(':')) return s;
+    // If ends with USDT already, keep
+    if (s.endsWith('USDT')) return s;
+    // Otherwise, assume USDT quote
+    return s + 'USDT';
+  };
+
   const handleEstimate = async (values) => {
     setEstimateLoading(true);
     try {
-      const result = await apiService.estimatePosition(values.symbol, values.size);
+      const symbol = normalizeSymbol(values.symbol);
+      const result = await apiService.estimatePosition(symbol, values.size);
       if (!result) throw new Error('Empty result');
       setEstimateResult(result);
       setLastEstimateError('');
-      // default selection: first option if provided
+      // default selection: prefer Long Gate / Short Bitget if available
       if (Array.isArray(result.options) && result.options.length > 0) {
-        setSelectedOption(result.options[0].key);
+        const preferred = result.options.find(o => isGate(o?.long?.exchange) && isBitget(o?.short?.exchange));
+        setSelectedOption((preferred || result.options[0]).key);
       } else {
         setSelectedOption(null);
       }
@@ -117,7 +141,7 @@ const OrderEntry = () => {
                   { pattern: /^[A-Za-z0-9/:.-]+$/, message: 'Symbol chỉ gồm chữ, số, /, : , . , -' }
                 ]}
               >
-                <Input placeholder="Ví dụ: ETHUSDT hoặc ETH/USDT:USDT" allowClear />
+                <Input placeholder="Ví dụ: ETH (tự thêm USDT) hoặc ETHUSDT hay ETH/USDT:USDT" allowClear />
               </Form.Item>
 
               <Form.Item
@@ -160,7 +184,7 @@ const OrderEntry = () => {
             ) : (
               <Alert
                 message="Quy trình mới"
-                description="Bước 1: Ước tính để xem contracts, bước tối thiểu và contract size từng sàn. Bước 2: Chọn Long/Short. Bước 3: Ấn OK để mở lệnh hai bên."
+                description="Bước 1: Nhập symbol (có thể chỉ nhập tên như ETH, hệ thống tự thêm USDT) và kích thước. Bước 2: Ước tính để xem contracts, bước tối thiểu và contract size từng sàn. Bước 3: Chọn Long/Short (mặc định ưu tiên Long Gate / Short Bitget) và ấn OK."
                 type="info"
                 showIcon
                 style={{ marginTop: 16 }}
@@ -203,6 +227,9 @@ const OrderEntry = () => {
                         {estimateResult.bitget?.minUsdtForMinStep !== undefined && (
                           <Text type="secondary">USDT tối thiểu cho 1 bước: {estimateResult.bitget.minUsdtForMinStep}</Text>
                         )}
+                        {estimateResult.bitget?.openInterestUSDT != null && (
+                          <Text type="secondary">Open Interest (USDT): {Number(estimateResult.bitget.openInterestUSDT).toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
+                        )}
                       </Space>
                     </Card>
                   </Col>
@@ -220,6 +247,9 @@ const OrderEntry = () => {
                         {estimateResult.gate?.minUsdtForMinStep !== undefined && (
                           <Text type="secondary">USDT tối thiểu cho 1 bước: {estimateResult.gate.minUsdtForMinStep}</Text>
                         )}
+                        {estimateResult.gate?.openInterestUSDT != null && (
+                          <Text type="secondary">Open Interest (USDT): {Number(estimateResult.gate.openInterestUSDT).toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
+                        )}
                       </Space>
                     </Card>
                   </Col>
@@ -236,7 +266,7 @@ const OrderEntry = () => {
 
                 <Divider />
 
-                <div style={{ marginBottom: 8 }}>Chọn chiến lược:</div>
+                <div style={{ marginBottom: 8 }}>Chọn chiến lược (mặc định ưu tiên Long Gate / Short Bitget):</div>
                 <Radio.Group
                   value={selectedOption}
                   onChange={(e) => setSelectedOption(e.target.value)}
@@ -277,7 +307,7 @@ const OrderEntry = () => {
             <ul>
               <li>Nhập symbol và kích thước (USDT) mỗi bên</li>
               <li>Nhấn "Tính toán ước tính" để xem contracts, bước tối thiểu và contract size từng sàn</li>
-              <li>Chọn chiến lược: Long Bitget/Short Gate hoặc Long Gate/Short Bitget</li>
+              <li>Chọn chiến lược: Long Gate/Short Bitget hoặc Long Bitget/Short Gate</li>
               <li>Nhấn "OK" để mở lệnh hai bên tương ứng</li>
             </ul>
           </Col>
