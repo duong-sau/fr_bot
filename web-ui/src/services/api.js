@@ -67,18 +67,21 @@ export const apiService = {
   },
 
   openPosition: async (symbol, size) => {
-    const response = await api.post(config.endpoints.positionsOpen, {
-      symbol,
-      size
-    });
+    const body = { symbol, size };
+    const response = await api.post(config.endpoints.positionsOpen, body);
+    return response.data;
+  },
+
+  // New: open hedge position with explicit side selection
+  openHedgePosition: async (payload) => {
+    // payload: { symbol, longExchange, longContracts, shortExchange, shortContracts }
+    const response = await api.post(config.endpoints.positionsOpenHedge, payload);
     return response.data;
   },
 
   estimatePosition: async (symbol, size) => {
-    const response = await api.post(config.endpoints.positionsEstimate, {
-      symbol,
-      size
-    });
+    const body = { symbol, size };
+    const response = await api.post(config.endpoints.positionsEstimate, body);
     return response.data;
   },
 

@@ -19,16 +19,35 @@ class BitgetTracker:
         response = self.client.fetch_positions()
         positions_json = [pos for pos in response]
         for pos in positions_json:
-            side = PositionSide.LONG if pos['side'].upper() == 'LONG' else PositionSide.SHORT
-            leverage = 1 / float(pos['initialMarginPercentage'])
-            symbol = pos['info']['symbol']
-            position = Position(symbol=pos['info']['symbol'], side=side, amount=float(pos['contracts']),
-                                entry_price=float(pos['entryPrice']), exchange=EXCHANGE.BITGET, margin=leverage)
+            side = PositionSide.LONG if str(pos.get('side', '')).upper() == 'LONG' else PositionSide.SHORT
+            # Derive leverage safely
+            try:
+                imp = pos.get('initialMarginPercentage')
+                leverage = 1.0 / float(imp) if imp not in (None, '', 0, '0') else 0.0
+            except Exception:
+                leverage = 0.0
+            info = pos.get('info', {}) or {}
+            symbol = info.get('symbol') or pos.get('symbol') or ''
+            try:
+                contracts = float(pos.get('contracts') or 0.0)
+            except Exception:
+                contracts = 0.0
+            try:
+                entry_price = float(pos.get('entryPrice') or 0.0)
+            except Exception:
+                entry_price = 0.0
+
+            position = Position(symbol=symbol, side=side, amount=contracts,
+                                entry_price=entry_price, exchange=EXCHANGE.BITGET, margin=leverage)
 
             # total_paid_funding = self.get_paid_funding(symbol, pos['timestamp'])
             if symbol.startswith("SXP"):
                 continue
-            total_paid_funding = float(pos['info'].get('totalFee', 0.0))
+            raw_total_fee = info.get('totalFee')
+            try:
+                total_paid_funding = float(raw_total_fee) if raw_total_fee not in (None, '') else 0.0
+            except Exception:
+                total_paid_funding = 0.0
             position.set_paid_funding(total_paid_funding)
 
             positions.append(position)

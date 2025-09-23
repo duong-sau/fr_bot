@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Card, Form, InputNumber, Button, Select, message, Row, Col, Divider, Alert } from 'antd';
-import { DollarOutlined, CalculatorOutlined } from '@ant-design/icons';
+import { Card, Form, InputNumber, Button, Select, Input, message, Row, Col, Divider, Alert, Radio, Descriptions, Space, Typography } from 'antd';
+import { CalculatorOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import apiService from '../services/api';
 
 const { Option } = Select;
+const { Text } = Typography;
 
 const OrderEntry = () => {
-  const [form] = Form.useForm();
   const [estimateForm] = Form.useForm();
-  const [loading, setLoading] = useState(false);
   const [estimateLoading, setEstimateLoading] = useState(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
   const [estimateResult, setEstimateResult] = useState(null);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [lastEstimateError, setLastEstimateError] = useState('');
 
   // Common cryptocurrency symbols
   const commonSymbols = [
@@ -19,124 +21,83 @@ const OrderEntry = () => {
     'EOSUSDT', 'TRXUSDT', 'XRPUSDT', 'ATOMUSDT', 'SOLUSDT'
   ];
 
-  const handleOpenPosition = async (values) => {
-    setLoading(true);
-    try {
-      const result = await apiService.openPosition(values.symbol, values.size);
-      message.success('Đã mở position thành công!');
-      form.resetFields();
-      console.log('Position opened:', result);
-    } catch (error) {
-      message.error('Không thể mở position: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleEstimate = async (values) => {
     setEstimateLoading(true);
     try {
       const result = await apiService.estimatePosition(values.symbol, values.size);
+      if (!result) throw new Error('Empty result');
       setEstimateResult(result);
+      setLastEstimateError('');
+      // default selection: first option if provided
+      if (Array.isArray(result.options) && result.options.length > 0) {
+        setSelectedOption(result.options[0].key);
+      } else {
+        setSelectedOption(null);
+      }
       message.success('Đã tính toán ước tính thành công!');
     } catch (error) {
-      message.error('Không thể tính toán ước tính: ' + error.message);
+      const detail = error?.response?.data?.detail || error?.message || '';
+      message.error('Không thể tính toán ước tính: ' + detail);
       setEstimateResult(null);
+      setSelectedOption(null);
+      setLastEstimateError(String(detail));
     } finally {
       setEstimateLoading(false);
+    }
+  };
+
+  const handleConfirmOpen = async () => {
+    if (!estimateResult) return;
+    const opts = Array.isArray(estimateResult.options) ? estimateResult.options : [];
+    const chosen = opts.find(o => o.key === selectedOption) || opts[0];
+    if (!chosen) {
+      message.warning('Vui lòng chọn chiến lược Long/Short');
+      return;
+    }
+
+    const payload = {
+      symbol: estimateResult.symbol,
+      longExchange: chosen.long.exchange,
+      longContracts: Number(chosen.long.contracts || 0),
+      shortExchange: chosen.short.exchange,
+      shortContracts: Number(chosen.short.contracts || 0)
+    };
+
+    if (!payload.longContracts || !payload.shortContracts) {
+      message.error('Số hợp đồng trên một trong hai sàn bằng 0, không thể mở lệnh.');
+      return;
+    }
+
+    setConfirmLoading(true);
+    try {
+      const res = await apiService.openHedgePosition(payload);
+      message.success('Đã gửi mở lệnh hedge thành công');
+      // Show server feedback: executed orders or dry-run plan
+      if (res?.orders && Array.isArray(res.orders)) {
+        const summary = res.orders.map(p => `${p.exchange} ${p.side} ${p.request} ${p.symbol}`).join(' | ');
+        message.info(summary, 8);
+      } else if (res?.plan) {
+        const summary = res.plan.map(p => `${p.exchange} ${p.side} ${p.contracts} ${p.symbol}`).join(' | ');
+        message.info(summary, 8);
+      }
+    } catch (error) {
+      const detail = error?.response?.data?.detail || error?.message || '';
+      message.error('Không thể mở lệnh hedge: ' + detail);
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
   return (
     <div>
       <Row gutter={24}>
-        {/* Open Position Form */}
-        <Col xs={24} lg={12}>
-          <Card
-            title={
-              <span>
-                <DollarOutlined style={{ marginRight: 8 }} />
-                Mở Position Mới
-              </span>
-            }
-          >
-            <Form
-              form={form}
-              layout="vertical"
-              onFinish={handleOpenPosition}
-              initialValues={{
-                size: 100
-              }}
-            >
-              <Form.Item
-                label="Symbol"
-                name="symbol"
-                rules={[
-                  { required: true, message: 'Vui lòng chọn symbol!' },
-                  { pattern: /^[A-Z0-9]+$/, message: 'Symbol phải là chữ hoa và số!' }
-                ]}
-              >
-                <Select
-                  showSearch
-                  placeholder="Chọn hoặc nhập symbol"
-                  optionFilterProp="children"
-                  filterOption={(input, option) =>
-                    option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                  }
-                >
-                  {commonSymbols.map(symbol => (
-                    <Option key={symbol} value={symbol}>{symbol}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-
-              <Form.Item
-                label="Kích thước Position"
-                name="size"
-                rules={[
-                  { required: true, message: 'Vui lòng nhập kích thước!' },
-                  { type: 'number', min: 0.01, message: 'Kích thước phải lớn hơn 0.01!' }
-                ]}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  placeholder="Nhập kích thước position"
-                  min={0.01}
-                  step={0.01}
-                  precision={4}
-                />
-              </Form.Item>
-
-              <Form.Item>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={loading}
-                  block
-                  size="large"
-                >
-                  Mở Position
-                </Button>
-              </Form.Item>
-            </Form>
-
-            <Alert
-              message="Lưu ý quan trọng"
-              description="Hệ thống sẽ tự động mở position trên cả hai sàn để thực hiện arbitrage. Hãy đảm bảo có đủ balance trên cả hai sàn."
-              type="warning"
-              showIcon
-              style={{ marginTop: 16 }}
-            />
-          </Card>
-        </Col>
-
         {/* Estimate Position Form */}
         <Col xs={24} lg={12}>
           <Card
             title={
               <span>
                 <CalculatorOutlined style={{ marginRight: 8 }} />
-                Ước tính Position
+                Ước tính & Chọn chiến lược
               </span>
             }
           >
@@ -152,44 +113,33 @@ const OrderEntry = () => {
                 label="Symbol"
                 name="symbol"
                 rules={[
-                  { required: true, message: 'Vui lòng chọn symbol!' },
-                  { pattern: /^[A-Z0-9]+$/, message: 'Symbol phải là chữ hoa và số!' }
+                  { required: true, message: 'Vui lòng nhập symbol!' },
+                  { pattern: /^[A-Za-z0-9/:.-]+$/, message: 'Symbol chỉ gồm chữ, số, /, : , . , -' }
                 ]}
               >
-                <Select
-                  showSearch
-                  placeholder="Chọn hoặc nhập symbol"
-                  optionFilterProp="children"
-                  filterOption={(input, option) =>
-                    option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                  }
-                >
-                  {commonSymbols.map(symbol => (
-                    <Option key={symbol} value={symbol}>{symbol}</Option>
-                  ))}
-                </Select>
+                <Input placeholder="Ví dụ: ETHUSDT hoặc ETH/USDT:USDT" allowClear />
               </Form.Item>
 
               <Form.Item
-                label="Kích thước Position"
+                label="Kích thước (USDT) mỗi bên"
                 name="size"
                 rules={[
                   { required: true, message: 'Vui lòng nhập kích thước!' },
-                  { type: 'number', min: 0.01, message: 'Kích thước phải lớn hơn 0.01!' }
+                  { type: 'number', min: 5, message: 'Kích thước phải >= 5 USDT!' }
                 ]}
               >
                 <InputNumber
                   style={{ width: '100%' }}
-                  placeholder="Nhập kích thước position"
-                  min={0.01}
-                  step={0.01}
-                  precision={4}
+                  placeholder="Nhập số USDT muốn vào cho mỗi bên"
+                  min={5}
+                  step={5}
+                  precision={2}
                 />
               </Form.Item>
 
               <Form.Item>
                 <Button
-                  type="default"
+                  type="primary"
                   htmlType="submit"
                   loading={estimateLoading}
                   block
@@ -200,22 +150,119 @@ const OrderEntry = () => {
               </Form.Item>
             </Form>
 
-            {estimateResult && (
-              <Card
-                size="small"
-                title="Kết quả ước tính"
+            {lastEstimateError ? (
+              <Alert
+                type="warning"
+                showIcon
+                message="Không thể ước tính"
+                description={lastEstimateError}
+              />
+            ) : (
+              <Alert
+                message="Quy trình mới"
+                description="Bước 1: Ước tính để xem contracts, bước tối thiểu và contract size từng sàn. Bước 2: Chọn Long/Short. Bước 3: Ấn OK để mở lệnh hai bên."
+                type="info"
+                showIcon
                 style={{ marginTop: 16 }}
-              >
-                <pre style={{
-                  background: '#f5f5f5',
-                  padding: 12,
-                  borderRadius: 4,
-                  fontSize: '12px',
-                  whiteSpace: 'pre-wrap'
-                }}>
-                  {JSON.stringify(estimateResult, null, 2)}
-                </pre>
-              </Card>
+              />
+            )}
+          </Card>
+        </Col>
+
+        {/* Estimate Result & Confirm */}
+        <Col xs={24} lg={12}>
+          <Card
+            title={
+              <span>
+                <ThunderboltOutlined style={{ marginRight: 8, color: '#faad14' }} />
+                Kết quả ước tính & Xác nhận
+              </span>
+            }
+          >
+            {!estimateResult ? (
+              <Alert type="warning" showIcon message="Chưa có ước tính" description="Hãy nhập thông tin và ấn Tính toán ước tính ở bên trái." />
+            ) : (
+              <>
+                <Descriptions size="small" bordered column={1} style={{ marginBottom: 12 }}>
+                  <Descriptions.Item label="Symbol">{estimateResult.symbol}</Descriptions.Item>
+                  <Descriptions.Item label="Kích thước yêu cầu (USDT)">{estimateResult.requestedSizeUSDT}</Descriptions.Item>
+                </Descriptions>
+
+                <Row gutter={12}>
+                  <Col span={12}>
+                    <Card size="small" title="Bitget" bordered>
+                      <Space direction="vertical" size={4}>
+                        <Text type="secondary">Symbol: {estimateResult.bitget?.symbol}</Text>
+                        <Text>Giá: {Number(estimateResult.bitget?.price ?? 0).toFixed(4)}</Text>
+                        <Text>Contract Size: {estimateResult.bitget?.contractSize}</Text>
+                        <Text>Bước hợp đồng tối thiểu: {estimateResult.bitget?.amountStep}</Text>
+                        <Text strong>Contracts: {estimateResult.bitget?.contracts}</Text>
+                        {estimateResult.bitget?.minUsdtFor1Contract !== undefined && (
+                          <Text type="secondary">USDT tối thiểu cho 1 contract: {estimateResult.bitget.minUsdtFor1Contract}</Text>
+                        )}
+                        {estimateResult.bitget?.minUsdtForMinStep !== undefined && (
+                          <Text type="secondary">USDT tối thiểu cho 1 bước: {estimateResult.bitget.minUsdtForMinStep}</Text>
+                        )}
+                      </Space>
+                    </Card>
+                  </Col>
+                  <Col span={12}>
+                    <Card size="small" title="Gate.io" bordered>
+                      <Space direction="vertical" size={4}>
+                        <Text type="secondary">Symbol: {estimateResult.gate?.symbol}</Text>
+                        <Text>Giá: {Number(estimateResult.gate?.price ?? 0).toFixed(4)}</Text>
+                        <Text>Contract Size: {estimateResult.gate?.contractSize}</Text>
+                        <Text>Bước hợp đồng tối thiểu: {estimateResult.gate?.amountStep}</Text>
+                        <Text strong>Contracts: {estimateResult.gate?.contracts}</Text>
+                        {estimateResult.gate?.minUsdtFor1Contract !== undefined && (
+                          <Text type="secondary">USDT tối thiểu cho 1 contract: {estimateResult.gate.minUsdtFor1Contract}</Text>
+                        )}
+                        {estimateResult.gate?.minUsdtForMinStep !== undefined && (
+                          <Text type="secondary">USDT tối thiểu cho 1 bước: {estimateResult.gate.minUsdtForMinStep}</Text>
+                        )}
+                      </Space>
+                    </Card>
+                  </Col>
+                </Row>
+
+                {estimateResult.minUsdtForBothMinStep !== undefined && (
+                  <Alert
+                    style={{ marginTop: 12 }}
+                    type="info"
+                    showIcon
+                    message={`USDT tối thiểu đề xuất để mở được cả hai bên (1 bước): ${estimateResult.minUsdtForBothMinStep}`}
+                  />
+                )}
+
+                <Divider />
+
+                <div style={{ marginBottom: 8 }}>Chọn chiến lược:</div>
+                <Radio.Group
+                  value={selectedOption}
+                  onChange={(e) => setSelectedOption(e.target.value)}
+                  style={{ display: 'block' }}
+                >
+                  {(estimateResult.options || []).map(opt => (
+                    <Radio key={opt.key} value={opt.key} style={{ display: 'block', marginBottom: 8 }}>
+                      {opt.label}
+                      <div style={{ color: '#999', fontSize: 12 }}>
+                        Long {opt.long.exchange} ({opt.long.contracts} contracts) / Short {opt.short.exchange} ({opt.short.contracts} contracts)
+                      </div>
+                    </Radio>
+                  ))}
+                </Radio.Group>
+
+                <Button
+                  type="primary"
+                  onClick={handleConfirmOpen}
+                  loading={confirmLoading}
+                  disabled={!selectedOption}
+                  style={{ marginTop: 12 }}
+                  block
+                >
+                  OK - Mở lệnh hai bên theo lựa chọn
+                </Button>
+              </>
             )}
           </Card>
         </Col>
@@ -226,21 +273,20 @@ const OrderEntry = () => {
       <Card title="Hướng dẫn sử dụng" size="small">
         <Row gutter={16}>
           <Col xs={24} md={12}>
-            <h4>Mở Position:</h4>
+            <h4>Quy trình mở lệnh mới:</h4>
             <ul>
-              <li>Chọn symbol từ danh sách hoặc nhập thủ công</li>
-              <li>Nhập kích thước position (USDT)</li>
-              <li>Hệ thống sẽ tự động mở position trên cả hai sàn</li>
-              <li>Kiểm tra balance trước khi thực hiện</li>
+              <li>Nhập symbol và kích thước (USDT) mỗi bên</li>
+              <li>Nhấn "Tính toán ước tính" để xem contracts, bước tối thiểu và contract size từng sàn</li>
+              <li>Chọn chiến lược: Long Bitget/Short Gate hoặc Long Gate/Short Bitget</li>
+              <li>Nhấn "OK" để mở lệnh hai bên tương ứng</li>
             </ul>
           </Col>
           <Col xs={24} md={12}>
-            <h4>Ước tính Position:</h4>
+            <h4>Lưu ý:</h4>
             <ul>
-              <li>Sử dụng để xem trước kết quả trước khi mở position thật</li>
-              <li>Hiển thị thông tin chi tiết về position sẽ được tạo</li>
-              <li>Giúp đánh giá rủi ro và lợi nhuận tiềm năng</li>
-              <li>Không tốn phí và không ảnh hưởng đến tài khoản</li>
+              <li>Nếu sàn hỗ trợ số thập phân (ví dụ 0.01), ứng dụng sẽ tự lượng hóa theo bước tối thiểu</li>
+              <li>Hãy đảm bảo đủ USDT trên cả hai sàn</li>
+              <li>Hiện tại server sẽ đặt lệnh thực tế; nếu chân thứ 2 lỗi, hệ thống cố gắng đóng ngay chân thứ 1 (reduce-only)</li>
             </ul>
           </Col>
         </Row>

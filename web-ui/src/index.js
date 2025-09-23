@@ -7,12 +7,11 @@ import App from './App';
 import './App.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
+
 root.render(
-  <React.StrictMode>
-    <ConfigProvider locale={viVN}>
-      <Router>
-        <App />
-      </Router>
-    </ConfigProvider>
-  </React.StrictMode>
+  <ConfigProvider locale={viVN}>
+    <Router>
+      <App />
+    </Router>
+  </ConfigProvider>
 );

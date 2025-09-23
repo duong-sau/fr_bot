@@ -80,6 +80,28 @@ def estimate_position_status(payload: PositionPayLoad):
     return e
 
 
+# New: open hedge position with explicit long/short selection
+class HedgeOpenPayload(BaseModel):
+    symbol: str
+    longExchange: str
+    longContracts: float
+    shortExchange: str
+    shortContracts: float
+
+@app.post("/bot1api/positions/open-hedge")
+def open_position_hedge(payload: HedgeOpenPayload):
+    ok, res = app_core.open_position_hedge(
+        payload.symbol,
+        payload.longExchange,
+        payload.longContracts,
+        payload.shortExchange,
+        payload.shortContracts,
+    )
+    if not ok:
+        raise HTTPException(status_code=400, detail=str(res))
+    return res
+
+
 class AssetRecord(BaseModel):
     timestamp: str
     side1: float

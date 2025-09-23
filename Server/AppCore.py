@@ -217,9 +217,25 @@ class AppCore:
         if not result:
             print("Cannot open position:", symbol)
             return False, e
-        self.position_creator.open_position(self._normalize_swap_symbol(symbol), e)
+        # e may be a dict (new estimate result) or amount string (legacy)
+        amount = None
+        if isinstance(e, dict):
+            try:
+                # choose min contracts across both exchanges to be conservative
+                c1 = float(e.get('bitget', {}).get('contracts') or 0)
+                c2 = float(e.get('gate', {}).get('contracts') or 0)
+                amount = str(max(0.0, min(c1, c2)))
+            except Exception:
+                amount = None
+        else:
+            amount = str(e)
+        self.position_creator.open_position(self._normalize_swap_symbol(symbol), amount or "0")
         return True, e
 
     def estimate_position(self, symbol, size):
         symbol = self._normalize_swap_symbol(symbol)
         return self.position_creator.estimate_position(symbol, size)
+
+    def open_position_hedge(self, symbol: str, long_exchange: str, long_contracts: float, short_exchange: str, short_contracts: float):
+        # do not normalize twice; PositionCreator handles per-exchange symbols
+        return self.position_creator.open_hedge_position(symbol, long_exchange, long_contracts, short_exchange, short_contracts)
