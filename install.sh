@@ -1,38 +1,43 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# FR Bot install script (server via systemd, microservices via Docker)
-# - Code location (host): /home/ubuntu/fr_bot/code
-# - Data/logs (host):     /home/ubuntu/fr_bot/{data,logs}
+# FR Bot install script (systemd FastAPI server with optional HTTPS, optional Docker microservices)
 # - Server: uvicorn via systemd (APP_MODULE=Server.App:app)
-# - ADL/Asset/Discord: Docker containers
+# - HTTPS: enabled automatically if SSL_CERTFILE and SSL_KEYFILE exist (default: /etc/ssl/frbot)
 
-# -------- Config --------
-APP_ROOT="/home/ubuntu/fr_bot"
-CODE_DIR="$APP_ROOT/code"
-LOG_DIR="$APP_ROOT/logs"
-DATA_DIR="$APP_ROOT/data"
-VENV_DIR="$APP_ROOT/venv"
-GIT_REPO="${GIT_REPO:-git@github.com:duong-sau/fr_bot.git}"
-GIT_REF="${GIT_REF:-master}"
+# ---------------- Config ----------------
+APP_ROOT="${APP_ROOT:-/home/ubuntu/fr_bot}"
+CODE_DIR="${CODE_DIR:-$APP_ROOT/code}"
+LOG_DIR="${LOG_DIR:-$APP_ROOT/logs}"
+DATA_DIR="${DATA_DIR:-$APP_ROOT/data}"
+VENV_DIR="${VENV_DIR:-$APP_ROOT/venv}"
+HOST_SETTINGS_DIR="$CODE_DIR/_settings"
+APP_MODULE="${APP_MODULE:-Server.App:app}"
+APP_PORT="${APP_PORT:-8000}"
+SYSTEMD_UNIT="${SYSTEMD_UNIT:-frbot-server.service}"
+
+# HTTPS cert/key locations (self-signed or CA). If both exist, service uses TLS.
+SSL_CERTFILE="${SSL_CERTFILE:-/etc/ssl/frbot/cert.pem}"
+SSL_KEYFILE="${SSL_KEYFILE:-/etc/ssl/frbot/key.pem}"
+
+# Microservices (optional; skip by default to keep this script focused on the server)
+SKIP_MICROSERVICES="${SKIP_MICROSERVICES:-1}"
+LOGS_VOLUME="${LOGS_VOLUME:-frbot_logs}"
 IMAGE_ADL="${IMAGE_ADL:-adlprocess}"
 IMAGE_ASSET="${IMAGE_ASSET:-assetprocess}"
 IMAGE_DISCORD="${IMAGE_DISCORD:-discord_shared_image}"
 CONTAINER_ADL="${CONTAINER_ADL:-adlcontrol_container}"
 CONTAINER_ASSET="${CONTAINER_ASSET:-assetcontrol_container}"
 CONTAINER_DISCORD="${CONTAINER_DISCORD:-discord_shared_container}"
-HOST_SETTINGS_DIR="$CODE_DIR/_settings"
-APP_MODULE="${APP_MODULE:-Server.App:app}"
-APP_PORT="${APP_PORT:-8000}"
-SYSTEMD_UNIT="frbot-server.service"
-# Shared logs volume for all containers
-# ------------------------
+GIT_REPO="${GIT_REPO:-}"
+GIT_REF="${GIT_REF:-master}"
+# ---------------------------------------
 
 require_ubuntu() {
   if [[ -f /etc/os-release ]]; then
     . /etc/os-release
     if [[ "${ID:-}" != "ubuntu" ]]; then
-      echo "[ERROR] Detected: ${NAME:-unknown}. Please run on Ubuntu-based AWS AMI." >&2
+      echo "[ERROR] Detected: ${NAME:-unknown}. Please run on Ubuntu." >&2
       exit 1
     fi
   fi
@@ -54,6 +59,18 @@ install_rsync() {
   fi
 }
 
+install_python() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "[INFO] Installing Python 3..."
+    sudo apt-get update -y
+    sudo apt-get install -y python3 python3-venv python3-pip build-essential
+  else
+    # ensure venv and pip exist
+    sudo apt-get update -y
+    sudo apt-get install -y python3-venv python3-pip build-essential
+  fi
+}
+
 install_docker() {
   if ! command -v docker >/dev/null 2>&1; then
     echo "[INFO] Installing Docker..."
@@ -68,10 +85,6 @@ install_docker() {
 ensure_logs_volume() {
   echo "[INFO] Ensuring shared logs volume: $LOGS_VOLUME"
   sudo docker volume create "$LOGS_VOLUME" >/dev/null
-  echo "[INFO] Ensuring shared logs volume: $LOGS_VOLUME"
-  sudo docker volume create "$LOGS_VOLUME" >/dev/null
-  sudo apt-get update -y
-  sudo apt-get install -y python3 python3-venv python3-pip build-essential
 }
 
 ensure_dirs() {
@@ -125,11 +138,21 @@ setup_venv_and_deps() {
 install_systemd_server() {
   echo "[INFO] Installing systemd unit: $SYSTEMD_UNIT"
   UNIT_PATH="/etc/systemd/system/$SYSTEMD_UNIT"
-  sudo bash -c "cat > '$UNIT_PATH'" <<EOF
+
+  local USE_SSL=0
+  if [[ -f "$SSL_CERTFILE" && -f "$SSL_KEYFILE" ]]; then
+    USE_SSL=1
+    echo "[INFO] SSL files found. Service will run with HTTPS."
+  else
+    echo "[WARN] SSL files not found at $SSL_CERTFILE / $SSL_KEYFILE. Service will run over HTTP."
+  fi
+
+  if [[ $USE_SSL -eq 1 ]]; then
+    sudo bash -c "cat > '$UNIT_PATH'" <<EOF
 [Unit]
-Description=FR Bot FastAPI Server (uvicorn)
+Description=FR Bot FastAPI Server (uvicorn, HTTPS)
 Wants=network-online.target
-After=network-online.target docker.service
+After=network-online.target
 
 [Service]
 Type=simple
@@ -140,8 +163,11 @@ Environment=APP_MODULE=$APP_MODULE
 Environment=HOST_SETTINGS_DIR=$HOST_SETTINGS_DIR
 Environment=LOG_DIR=$LOG_DIR
 Environment=DATA_DIR=$DATA_DIR
-ExecStart=$VENV_DIR/bin/uvicorn \
-  \${APP_MODULE} --host 0.0.0.0 --port $APP_PORT --log-level info
+Environment=UVICORN_SSL_CERTFILE=$SSL_CERTFILE
+Environment=UVICORN_SSL_KEYFILE=$SSL_KEYFILE
+ExecStart=$VENV_DIR/bin/uvicorn \\
+  \\${APP_MODULE} --host 0.0.0.0 --port $APP_PORT --log-level info \\
+  --ssl-certfile $SSL_CERTFILE --ssl-keyfile $SSL_KEYFILE
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
@@ -151,6 +177,35 @@ ProtectSystem=full
 [Install]
 WantedBy=multi-user.target
 EOF
+  } else {
+    sudo bash -c "cat > '$UNIT_PATH'" <<EOF
+[Unit]
+Description=FR Bot FastAPI Server (uvicorn, HTTP)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+Group=$USER
+WorkingDirectory=$CODE_DIR
+Environment=APP_MODULE=$APP_MODULE
+Environment=HOST_SETTINGS_DIR=$HOST_SETTINGS_DIR
+Environment=LOG_DIR=$LOG_DIR
+Environment=DATA_DIR=$DATA_DIR
+ExecStart=$VENV_DIR/bin/uvicorn \\
+  \\${APP_MODULE} --host 0.0.0.0 --port $APP_PORT --log-level info
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  fi
+
   sudo systemctl daemon-reload
   sudo systemctl enable "$SYSTEMD_UNIT"
   sudo systemctl restart "$SYSTEMD_UNIT"
@@ -161,7 +216,7 @@ EOF
 build_images_microservices() {
   install_docker
   ensure_logs_volume
-  echo "[INFO] Building microservice images (server image disabled)..."
+  echo "[INFO] Building microservice images..."
   sudo docker build -f "$CODE_DIR/MainProcess/ADLControl/Dockerfile" -t "$IMAGE_ADL" "$CODE_DIR"
   sudo docker build -f "$CODE_DIR/MainProcess/AssetControl/Dockerfile" -t "$IMAGE_ASSET" "$CODE_DIR"
   sudo docker build -f "$CODE_DIR/Notification/Dockerfile" -t "$IMAGE_DISCORD" "$CODE_DIR"
@@ -172,35 +227,38 @@ recreate_containers_microservices() {
   sudo docker rm -f "$CONTAINER_ADL" "$CONTAINER_ASSET" "$CONTAINER_DISCORD" 2>/dev/null || true
 
   echo "[INFO] Creating microservice containers (ADL/Asset stopped by default, Discord started)"
-  # Mount shared logs volume to both new and legacy paths inside containers.
   sudo docker create --name "$CONTAINER_ADL" \
     -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
     -v "$LOGS_VOLUME":/app/logs \
-  # Mount shared logs volume to both new and legacy paths inside containers.
-  sudo docker run -d --name "$CONTAINER_DISCORD" \
+    "$IMAGE_ADL"
+
+  sudo docker create --name "$CONTAINER_ASSET" \
     -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
     -v "$LOGS_VOLUME":/app/logs \
+    "$IMAGE_ASSET"
+
+  sudo docker run -d --name "$CONTAINER_DISCORD" \
+    -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
     -v "$LOGS_VOLUME":/app/logs \
     -v "$HOST_SETTINGS_DIR":/home/ubuntu/fr_bot/code/_settings \
     "$IMAGE_DISCORD"
 }
-    -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
-    -v "$LOGS_VOLUME":/app/logs \
+
+post_checks() {
   echo "[INFO] systemd service listening on :$APP_PORT"
   if command -v curl >/dev/null 2>&1; then
     sleep 2
     echo "[INFO] Health check (if implemented):"
-    curl -sf "http://127.0.0.1:${APP_PORT}/bot1api/microservices" || true
-    -v "$LOGS_VOLUME":/home/ubuntu/fr_bot/logs \
-    -v "$LOGS_VOLUME":/app/logs \
-  echo "[INFO] Docker containers:"
-  sudo docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
-  echo "[INFO] Docker volumes:"
-  sudo docker volume ls | grep -E "(VOLUME|$LOGS_VOLUME)" || true
+    if [[ -f "$SSL_CERTFILE" && -f "$SSL_KEYFILE" ]]; then
+      curl -skf "https://127.0.0.1:${APP_PORT}/bot1api/microservices" || true
+    else
+      curl -sf "http://127.0.0.1:${APP_PORT}/bot1api/microservices" || true
+    fi
+  fi
 }
 
 main() {
-  echo "[INFO] One-click install (systemd server, docker microservices)"
+  echo "[INFO] One-click install (systemd server with optional HTTPS)"
   require_ubuntu
   ensure_dirs
   fetch_code
@@ -210,11 +268,20 @@ main() {
   fi
   setup_venv_and_deps
   install_systemd_server
-  build_images_microservices
-  recreate_containers_microservices
+
+  if [[ "$SKIP_MICROSERVICES" -eq 0 ]]; then
+    build_images_microservices
+    recreate_containers_microservices
+  else
+    echo "[INFO] Skipping microservices build/run (SKIP_MICROSERVICES=$SKIP_MICROSERVICES)"
+  fi
+
   post_checks
-  echo "[DONE] Server: http://<server-ip>:$APP_PORT  Code: '$CODE_DIR'  Logs Volume: '$LOGS_VOLUME'  Data: '$DATA_DIR'"
+  if [[ -f "$SSL_CERTFILE" && -f "$SSL_KEYFILE" ]]; then
+    echo "[DONE] Server: https://<server-ip>:$APP_PORT  Code: '$CODE_DIR'  Logs Volume: '$LOGS_VOLUME'  Data: '$DATA_DIR'"
+  else
+    echo "[DONE] Server: http://<server-ip>:$APP_PORT  Code: '$CODE_DIR'  Logs Volume: '$LOGS_VOLUME'  Data: '$DATA_DIR'"
+  fi
 }
 
 main "$@"
-
