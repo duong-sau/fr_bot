@@ -1,34 +1,46 @@
 #!/usr/bin/env bash
-# Generate a self-signed TLS certificate and key (with SAN) and install
+# Generate a self-signed TLS certificate and key (with SANs) and install
 # environment variables for Uvicorn (system-wide via /etc/profile.d).
 #
 # Requirements: openssl, sudo privileges
 #
 # Usage:
-#   sudo bash generate_ssl.sh -n <domain-or-ip> [-o /etc/ssl/frbot] [-d 825] [-f]
+#   sudo bash generate_ssl.sh -n <name1[,name2,...]> [-n <nameX>] [-o /etc/ssl/frbot] [-d 825] [-f]
+#     -n can be specified multiple times or as a comma-separated list (IPs and/or domains)
 #
 # Examples:
 #   sudo bash generate_ssl.sh -n example.com
 #   sudo bash generate_ssl.sh -n 127.0.0.1 -o /etc/ssl/frbot -d 365
+#   sudo bash generate_ssl.sh -n "35.74.241.110,18.177.92.181"
+#   sudo bash generate_ssl.sh -n 35.74.241.110 -n 18.177.92.181
 #
 # After running, re-login or run: source /etc/profile.d/uvicorn_ssl.sh
 
 set -euo pipefail
 
-NAME=""
+# Collected SAN names (IPs or domains)
+NAMES=()
 OUT_DIR="/etc/ssl/frbot"
 DAYS=825
 FORCE=0
 
 usage() {
-  echo "Usage: sudo bash $0 -n <domain-or-ip> [-o /etc/ssl/frbot] [-d 825] [-f]" 1>&2
+  echo "Usage: sudo bash $0 -n <name1[,name2,...]> [-n <nameX>] [-o /etc/ssl/frbot] [-d 825] [-f]" 1>&2
   exit 1
 }
 
 # Parse arguments
 while getopts ":n:o:d:f" opt; do
   case "$opt" in
-    n) NAME="$OPTARG" ;;
+    n)
+      IFS=',' read -r -a parts <<<"$OPTARG"
+      for p in "${parts[@]}"; do
+        p_trim=$(echo "$p" | xargs)
+        if [[ -n "$p_trim" ]]; then
+          NAMES+=("$p_trim")
+        fi
+      done
+      ;;
     o) OUT_DIR="$OPTARG" ;;
     d) DAYS="$OPTARG" ;;
     f) FORCE=1 ;;
@@ -36,15 +48,18 @@ while getopts ":n:o:d:f" opt; do
   esac
 done
 
-if [[ -z "${NAME}" ]]; then
-  echo "[ERROR] -n <domain-or-ip> is required." 1>&2
+if [[ ${#NAMES[@]} -eq 0 ]]; then
+  echo "[ERROR] At least one -n <domain-or-ip> is required." 1>&2
   usage
 fi
 
 # Ensure running with sudo/root
 if [[ $EUID -ne 0 ]]; then
   echo "[INFO] Re-running with sudo..."
-  exec sudo -E bash "$0" -n "$NAME" -o "$OUT_DIR" -d "$DAYS" ${FORCE:+-f}
+  # Reconstruct -n flags for sudo rerun
+  NFLAGS=()
+  for n in "${NAMES[@]}"; do NFLAGS+=("-n" "$n"); done
+  exec sudo -E bash "$0" "${NFLAGS[@]}" -o "$OUT_DIR" -d "$DAYS" ${FORCE:+-f}
 fi
 
 # Check openssl availability
@@ -81,7 +96,29 @@ is_ip() {
   fi
 }
 
-# Build openssl config with SAN
+# Deduplicate names and prepare SAN lists
+declare -A added
+uniq_names=()
+for n in "${NAMES[@]}"; do
+  if [[ -z "${added[$n]:-}" ]]; then
+    added[$n]=1
+    uniq_names+=("$n")
+  fi
+done
+
+# Ensure localhost and 127.0.0.1 are present once
+if [[ -z "${added[localhost]:-}" ]]; then
+  uniq_names+=("localhost")
+  added[localhost]=1
+fi
+if [[ -z "${added[127.0.0.1]:-}" ]]; then
+  uniq_names+=("127.0.0.1")
+  added[127.0.0.1]=1
+fi
+
+CN_NAME="${uniq_names[0]}"
+
+# Build openssl config with SANs
 {
   echo "[req]"
   echo "default_bits = 2048"
@@ -91,7 +128,7 @@ is_ip() {
   echo "distinguished_name = dn"
   echo ""
   echo "[dn]"
-  echo "CN = ${NAME}"
+  echo "CN = ${CN_NAME}"
   echo ""
   echo "[v3_req]"
   echo "subjectAltName = @alt_names"
@@ -99,15 +136,17 @@ is_ip() {
   echo "extendedKeyUsage = serverAuth"
   echo ""
   echo "[alt_names]"
-  if is_ip "$NAME"; then
-    echo "IP.1 = ${NAME}"
-    echo "DNS.1 = localhost"
-    echo "IP.2 = 127.0.0.1"
-  else
-    echo "DNS.1 = ${NAME}"
-    echo "DNS.2 = localhost"
-    echo "IP.1 = 127.0.0.1"
-  fi
+  dns_i=1
+  ip_i=1
+  for n in "${uniq_names[@]}"; do
+    if is_ip "$n"; then
+      echo "IP.${ip_i} = ${n}"
+      ip_i=$((ip_i+1))
+    else
+      echo "DNS.${dns_i} = ${n}"
+      dns_i=$((dns_i+1))
+    fi
+  done
 } > "$CFG_PATH"
 
 echo "[INFO] OpenSSL config written to $CFG_PATH"
