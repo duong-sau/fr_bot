@@ -8,14 +8,14 @@ const STORAGE_KEYS = {
   active: 'frbot.activeServer', // 'A' | 'B' | 'C' | 'D'
 };
 
-const FIXED_SERVER_D = 'http://127.0.0.1:8000';
+const FIXED_SERVER_D = 'https://127.0.0.1:8000';
 
-// Basic URL sanitizer: ensure protocol is present, default to http://
+// Basic URL sanitizer: ensure protocol is present, default to https://
 function normalizeBaseUrl(input) {
   if (!input) return '';
   let value = String(input).trim();
   if (!/^https?:\/\//i.test(value)) {
-    value = 'http://' + value;
+    value = 'https://' + value;
   }
   // remove trailing slash
   value = value.replace(/\/$/, '');

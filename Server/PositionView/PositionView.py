@@ -22,9 +22,10 @@ class PositionView:
     def refresh(self):
 
 
-        binance_open_positions = self.tracker.get_open_positions()
-        bitget_open_positions = self.bitget_tracker.get_open_positions()
-        self.fr_arbitrage_core.check_position(binance_open_positions + bitget_open_positions)
+        # Collect open positions from both trackers
+        bitget_open_positions = self.tracker.get_open_positions()
+        gate_open_positions = self.bitget_tracker.get_open_positions()
+        self.fr_arbitrage_core.check_position(bitget_open_positions + gate_open_positions)
 
         # compute notional size (USDT) per position based on entry price
         bitget = exchange_manager.bitget_exchange
@@ -77,26 +78,31 @@ class PositionView:
                             continue
             return cs
 
-        for pos in self.fr_arbitrage_core.positions:
+        # helper to compute notional and attach as amount_
+        def _compute_and_set_notional(leg, client):
             try:
-                # choose client by long leg exchange for notional display
-                long_client = bitget if pos.long_position.exchange == EXCHANGE.BITGET else gate
-                sym = _to_swap_symbol(pos.long_position.symbol)
+                sym = _to_swap_symbol(getattr(leg, 'symbol', ''))
                 try:
-                    market = long_client.market(sym)
+                    market = client.market(sym)
                 except Exception:
                     market = None
                 cs = _contract_size_from_market(market)
-                entry = float(pos.long_position.entry_price or 0.0)
-                contracts = float(pos.long_position.amount or 0.0)
-                notional = round(contracts * cs * entry, 2)
-                pos.long_position.amount_ = notional
+                entry = float(getattr(leg, 'entry_price', 0.0) or 0.0)
+                contracts = float(getattr(leg, 'amount', 0.0) or 0.0)
+                notional = round(max(0.0, contracts) * cs * max(0.0, entry), 2)
+                setattr(leg, 'amount_', notional)
             except Exception:
-                # if any error, fallback to 0 notional to avoid breaking API
                 try:
-                    pos.long_position.amount_ = 0.0
+                    setattr(leg, 'amount_', 0.0)
                 except Exception:
                     pass
+
+        for pos in self.fr_arbitrage_core.positions:
+            # choose client by exchange for display
+            long_client = bitget if pos.long_position.exchange == EXCHANGE.BITGET else gate
+            short_client = bitget if pos.short_position.exchange == EXCHANGE.BITGET else gate
+            _compute_and_set_notional(pos.long_position, long_client)
+            _compute_and_set_notional(pos.short_position, short_client)
 
     def refresh_unreal_pnl(self):
         # Deprecated: no-op to keep compatibility if called somewhere
