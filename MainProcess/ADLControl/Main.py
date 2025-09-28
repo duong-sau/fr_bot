@@ -118,7 +118,7 @@ class ADLController:
                     p_symbol = p['symbol']
                     p_size = float(p['contracts']) * float(p['contractSize'])
 
-                    if p_symbol.startswith("SXP"):
+                    if p_symbol.startswith("SXP") or p_symbol.startswith("OKX") or p_symbol.startswith("BGB"):
                         continue
 
                     async with self.lock:
