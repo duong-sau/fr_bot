@@ -140,6 +140,7 @@ class ADLController:
         await self.gate_pro.load_markets()
         positions = await self.gate_pro.watch_positions()
         open_symbols = [p['symbol'] for p in positions if float(p.get('contracts', 0)) > 0]
+        open_symbols = [s for s in open_symbols if not s.startswith("SXP") and not s.startswith("OKB") and not s.startswith("BGB")]
         with open(f"{root_path}/code/_settings/symbols.txt", 'w', encoding='utf-8') as file:
             for sym in open_symbols:
                 file.write(f"{sym}\n")
