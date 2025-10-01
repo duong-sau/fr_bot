@@ -117,8 +117,8 @@ class ADLController:
                 for p in pos:
                     p_symbol = p['symbol']
                     p_size = float(p['contracts']) * float(p['contractSize'])
-
-                    if p_symbol.startswith("SXP") or p_symbol.startswith("OKX") or p_symbol.startswith("BGB"):
+                    ignore_symbols = ["SXP", "OKB", "BGB", "EDEN", "ETH"]
+                    if any(ig in p_symbol for ig in ignore_symbols):
                         continue
 
                     async with self.lock:
@@ -140,7 +140,8 @@ class ADLController:
         await self.gate_pro.load_markets()
         positions = await self.gate_pro.watch_positions()
         open_symbols = [p['symbol'] for p in positions if float(p.get('contracts', 0)) > 0]
-        open_symbols = [s for s in open_symbols if not s.startswith("SXP") and not s.startswith("OKB") and not s.startswith("BGB")]
+        ignore_symbols = ["SXP", "OKB", "BGB", "EDEN", "ETH"]
+        open_symbols = [s for s in open_symbols if not any(ig in s for ig in ignore_symbols)]
         with open(f"{root_path}/code/_settings/symbols.txt", 'w', encoding='utf-8') as file:
             for sym in open_symbols:
                 file.write(f"{sym}\n")
