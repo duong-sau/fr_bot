@@ -8,6 +8,66 @@ class GateIOTracker:
     def __init__(self, exchange):
        self.client = exchange
 
+    def _normalize_symbol_for_ticker(self, pos):
+        """Chuyển contract GateIO (VD: BTC_USDT) về dạng fetch_ticker (BTC/USDT)."""
+        contract = pos.get('info', {}).get('contract') or pos.get('symbol') or ''
+        if '_' in contract:
+            parts = contract.split('_')
+            if len(parts) == 2 and parts[0] and parts[1]:
+                return f"{parts[0]}/{parts[1]}"
+        # Thử dạng chuẩn nếu có sẵn
+        if '/' in contract:
+            return contract
+        return contract  # fallback trả nguyên
+
+    def _get_current_price(self, pos):
+        """Lấy current price ưu tiên mark/last có sẵn, fallback fetch_ticker."""
+        # Ưu tiên dùng dữ liệu đã có trong pos
+        for key in ('markPrice', 'lastPrice', 'indexPrice', 'last', 'mark'):
+            try:
+                v = pos.get(key)
+                if v not in (None, '', 0, '0'):
+                    price = float(v)
+                    if price > 0:
+                        return price
+            except Exception:
+                pass
+        # Trong info
+        info = pos.get('info', {}) or {}
+        for key in ('markPrice', 'lastPrice', 'indexPrice', 'last', 'mark', 'close'):
+            try:
+                v = info.get(key)
+                if v not in (None, '', 0, '0'):
+                    price = float(v)
+                    if price > 0:
+                        return price
+            except Exception:
+                pass
+        # fetch ticker nếu vẫn chưa có
+        fetch_symbol = self._normalize_symbol_for_ticker(pos)
+        try:
+            ticker = self.client.fetch_ticker(fetch_symbol)
+            for key in ('last', 'mark', 'close', 'ask', 'bid'):
+                if key in ticker:
+                    try:
+                        val = float(ticker[key])
+                        if val > 0:
+                            return val
+                    except Exception:
+                        continue
+            tinfo = ticker.get('info', {}) or {}
+            for key in ('markPrice', 'lastPrice', 'close'):
+                if key in tinfo:
+                    try:
+                        val = float(tinfo[key])
+                        if val > 0:
+                            return val
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+        return 0.0
+
     def get_open_positions(self):
         """
         Get all currently open positions on GateIO Futures.
@@ -17,17 +77,32 @@ class GateIOTracker:
         response = self.client.fetch_positions()
         positions_json = [pos for pos in response if float(pos['contracts']) > 0]
         for pos in positions_json:
-            symbol = pos['info']['contract'].replace('_', '')
-            side = PositionSide.LONG if pos['side'].upper() == 'LONG' else PositionSide.SHORT
-            margin = float(pos['maintenanceMargin']) if 'maintenanceMargin' in pos else 1.0  # Default to 1.0 if not available
-            position = Position(symbol=symbol, side=side, amount=float(pos['contracts']),
-                                entry_price=float(pos['entryPrice']), exchange=EXCHANGE.GATE, margin=margin)
-            positions.append(position)
-            # total_paid_funding = self.get_paid_funding(symbol, pos['timestamp'])
+            symbol_contract = pos['info']['contract']  # VD: BTC_USDT
+            symbol = symbol_contract.replace('_', '')  # Giữ nguyên hành vi cũ cho Position
+
+            # Skip SXP positions trước khi xử lý
             if symbol.startswith("SXP"):
                 continue
-            total_paid_funding = float(pos['info'].get('pnl_fund', 0.0))
+
+            side = PositionSide.LONG if pos['side'].upper() == 'LONG' else PositionSide.SHORT
+            try:
+                margin = float(pos.get('maintenanceMargin')) if 'maintenanceMargin' in pos else 1.0
+            except Exception:
+                margin = 1.0
+            # Dùng current price thay vì entryPrice theo yêu cầu
+            try:
+                entry_price = self._get_current_price(pos)
+            except Exception:
+                entry_price = 0.0
+            position = Position(symbol=symbol, side=side, amount=float(pos['contracts']),
+                                entry_price=entry_price, exchange=EXCHANGE.GATE, margin=margin)
+
+            try:
+                total_paid_funding = float(pos['info'].get('pnl_fund', 0.0))
+            except Exception:
+                total_paid_funding = 0.0
             position.set_paid_funding(total_paid_funding)
+            positions.append(position)
 
         return positions
     def get_cross_margin_account_info(self):

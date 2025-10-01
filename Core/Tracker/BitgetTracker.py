@@ -9,6 +9,47 @@ class BitgetTracker:
     def __init__(self, exchange):
             self.client = exchange
 
+    def _get_current_price(self, symbol, pos):
+        """Lấy giá hiện tại của symbol.
+        Ưu tiên dùng dữ liệu có sẵn trong pos (markPrice / lastPrice) để tránh gọi mạng.
+        Nếu không có sẽ fetch_ticker từ sàn.
+        """
+        # Thử lấy từ dữ liệu position trước
+        for key in ('markPrice', 'lastPrice', 'indexPrice'):
+            try:
+                v = pos.get(key)
+                if v not in (None, '', 0, '0'):
+                    price = float(v)
+                    if price > 0:
+                        return price
+            except Exception:
+                pass
+        # Nếu vẫn chưa có -> gọi ticker
+        try:
+            # Một số symbol dạng "BTC/USDT:USDT"; fetch_ticker có thể chấp nhận trực tiếp.
+            ticker = self.client.fetch_ticker(symbol)
+            for key in ('last', 'mark', 'close', 'ask', 'bid'):
+                if key in ticker:
+                    try:
+                        val = float(ticker[key])
+                        if val > 0:
+                            return val
+                    except Exception:
+                        continue
+            # fallback từ info
+            info = ticker.get('info', {}) or {}
+            for key in ('markPrice', 'lastPrice', 'close'):
+                if key in info:
+                    try:
+                        val = float(info[key])
+                        if val > 0:
+                            return val
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+        return 0.0
+
     def get_open_positions(self):
         """
         Get all currently open positions on BitGet Futures.
@@ -32,8 +73,9 @@ class BitgetTracker:
                 contracts = float(pos.get('contracts') or 0.0)
             except Exception:
                 contracts = 0.0
+            # Thay vì lấy entryPrice (giá vào lệnh), yêu cầu: dùng current price hiện tại.
             try:
-                entry_price = float(pos.get('entryPrice') or 0.0)
+                entry_price = self._get_current_price(symbol, pos)
             except Exception:
                 entry_price = 0.0
 
