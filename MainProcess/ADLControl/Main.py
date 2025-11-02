@@ -91,45 +91,37 @@ class ADLController:
 
         while True:
             try:
-                if exchange.id == 'bitget':
-                    bitget_symbols = [s.replace("OMNI", "OMNI1") for s in symbols]
-                    pos = await exchange.watch_positions(symbols=bitget_symbols)
-                    pos2 = []
-                    for p in pos:
-                        p['symbol'] = p['symbol'].replace("OMNI1", "OMNI")
-                        pos2.append(p)
-                    pos = pos2
-                else:
-                    pos = await exchange.watch_positions(symbols=symbols)
+                pos = await exchange.watch_positions(symbols=symbols)
                 print(pos)
-                self.old_positions = copy.deepcopy(self.positions)
-                # Check for symbols not present in current positions
-                current_symbols = {p['symbol'] for p in pos}
-                for symbol in self.positions.keys():
-                    if symbol not in current_symbols:
-                        if exchange.id == 'bitget':
-                            adl_log(f"Bitget position for {symbol} is be size 0")
-                            self.positions[symbol]['bitget_size'] = 0
-                        elif exchange.id == 'gateio':
-                            adl_log(f"GateIO position for {symbol} is be size 0")
-                            self.positions[symbol]['gate_size'] = 0
 
-                for p in pos:
-                    p_symbol = p['symbol']
-                    p_size = float(p['contracts']) * float(p['contractSize'])
-                    ignore_symbols = ["SXP", "OKB", "BGB", "EDEN", "ETH"]
-                    if any(ig in p_symbol for ig in ignore_symbols):
-                        continue
+                async with self.lock:
+                    self.old_positions = copy.deepcopy(self.positions)
+                    # Check for symbols not present in current positions
+                    current_symbols = {p['symbol'] for p in pos}
+                    for symbol in self.positions.keys():
+                        if symbol not in current_symbols:
+                            if exchange.id == 'bitget':
+                                adl_log(f"Bitget position for {symbol} is be size 0")
+                                self.positions[symbol]['bitget_size'] = 0
+                            elif exchange.id == 'gateio':
+                                adl_log(f"GateIO position for {symbol} is be size 0")
+                                self.positions[symbol]['gate_size'] = 0
 
-                    async with self.lock:
+                    for p in pos:
+                        p_symbol = p['symbol']
+                        p_size = float(p['contracts']) * float(p['contractSize'])
+                        ignore_symbols = ["SXP", "OKB", "BGB", "EDEN", "ETH"]
+                        if any(ig in p_symbol for ig in ignore_symbols):
+                            continue
+
                         if exchange.id == 'bitget':
                             self.positions.setdefault(p_symbol, {})['bitget_size'] = p_size
                         elif exchange.id == 'gateio':
                             self.positions.setdefault(p_symbol, {})['gate_size'] = p_size
 
-                # Check for changes in positions
-                self.check_position_change_by_ws()
-                self.error_count = self.error_count - 1 if self.error_count > 1 else 0
+                    # Check for changes in positions
+                    self.check_position_change_by_ws()
+                    self.error_count = self.error_count - 1 if self.error_count > 1 else 0
 
             except Exception as e:
                 self.error_count += 1
