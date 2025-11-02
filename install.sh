@@ -139,15 +139,6 @@ install_systemd_server() {
   echo "[INFO] Installing systemd unit: $SYSTEMD_UNIT"
   UNIT_PATH="/etc/systemd/system/$SYSTEMD_UNIT"
 
-  # Enforce HTTPS: cert and key must exist
-  if [[ ! -f "$SSL_CERTFILE" || ! -f "$SSL_KEYFILE" ]]; then
-    echo "[ERROR] SSL cert/key not found. Expected:"
-    echo "  SSL_CERTFILE=$SSL_CERTFILE"
-    echo "  SSL_KEYFILE=$SSL_KEYFILE"
-    echo "Hint: run generate_ssl.sh (in repo) to create self-signed certs, or set env to your CA cert paths."
-    exit 1
-  fi
-
   sudo bash -c "cat > '$UNIT_PATH'" <<EOF
 [Unit]
 Description=FR Bot FastAPI Server (uvicorn, HTTPS)
@@ -230,6 +221,7 @@ main() {
   require_ubuntu
   ensure_dirs
   fetch_code
+  mv "/home/ubuntu/_settings"* "$HOST_SETTINGS_DIR/" || true
   if [[ ! -f "$HOST_SETTINGS_DIR/config.txt" ]]; then
     echo "[ERROR] Missing settings file: '$HOST_SETTINGS_DIR/config.txt'" >&2
     exit 1
