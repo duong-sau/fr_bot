@@ -127,7 +127,7 @@ def create_asset_snapshot():
 
 
 if __name__ == "__main__":
-    # Configurable host/port and optional SSL via environment variables
+    # Configurable host/port. Always run over HTTP (no SSL)
     host = os.environ.get("UVICORN_HOST", "0.0.0.0")
     try:
         port = int(os.environ.get("UVICORN_PORT", "8000"))
@@ -136,21 +136,7 @@ if __name__ == "__main__":
 
     reload_flag = os.environ.get("UVICORN_RELOAD", "true").lower() in ("1", "true", "yes")
 
-    ssl_certfile = os.environ.get("UVICORN_SSL_CERTFILE")
-    ssl_keyfile = os.environ.get("UVICORN_SSL_KEYFILE")
-    ssl_keyfile_password = os.environ.get("UVICORN_SSL_KEYFILE_PASSWORD")
-
-    # If cert/key are provided and exist, enable HTTPS
-    ssl_kwargs = {}
-    if ssl_certfile and ssl_keyfile and os.path.exists(ssl_certfile) and os.path.exists(ssl_keyfile):
-        ssl_kwargs = {
-            "ssl_certfile": ssl_certfile,
-            "ssl_keyfile": ssl_keyfile,
-            "ssl_keyfile_password": ssl_keyfile_password,
-        }
-        print(f"[INFO] Starting Uvicorn with HTTPS on {host}:{port}")
-    else:
-        print(f"[INFO] Starting Uvicorn without SSL on {host}:{port}")
+    print(f"[INFO] Starting Uvicorn (HTTP) on {host}:{port}")
 
     # Pass the app instance directly to avoid import path issues
-    uvicorn.run(app, host=host, port=port, reload=reload_flag, **ssl_kwargs)
+    uvicorn.run(app, host=host, port=port, reload=reload_flag)

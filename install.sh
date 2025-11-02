@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# FR Bot install script (systemd FastAPI server over HTTPS)
+# FR Bot install script (systemd FastAPI server over HTTP)
 # - Server: uvicorn via systemd (APP_MODULE=Server.App:app)
-# - HTTPS only: requires SSL_CERTFILE and SSL_KEYFILE to exist (default: /etc/ssl/frbot)
+# - HTTP by default
 
 # ---------------- Config ----------------
 APP_ROOT="${APP_ROOT:-/home/ubuntu/fr_bot}"
@@ -15,10 +15,6 @@ HOST_SETTINGS_DIR="$CODE_DIR/_settings"
 APP_MODULE="${APP_MODULE:-Server.App:app}"
 APP_PORT="${APP_PORT:-8000}"
 SYSTEMD_UNIT="${SYSTEMD_UNIT:-frbot-server.service}"
-
-# HTTPS cert/key locations (self-signed or CA). Must exist.
-SSL_CERTFILE="${SSL_CERTFILE:-/etc/ssl/frbot/cert.pem}"
-SSL_KEYFILE="${SSL_KEYFILE:-/etc/ssl/frbot/key.pem}"
 
 # Microservices (optional; skip by default to keep this script focused on the server)
 SKIP_MICROSERVICES="${SKIP_MICROSERVICES:-1}"
@@ -141,7 +137,7 @@ install_systemd_server() {
 
   sudo bash -c "cat > '$UNIT_PATH'" <<EOF
 [Unit]
-Description=FR Bot FastAPI Server (uvicorn, HTTPS)
+Description=FR Bot FastAPI Server (uvicorn, HTTP)
 Wants=network-online.target
 After=network-online.target
 
@@ -154,11 +150,8 @@ Environment=APP_MODULE=$APP_MODULE
 Environment=HOST_SETTINGS_DIR=$HOST_SETTINGS_DIR
 Environment=LOG_DIR=$LOG_DIR
 Environment=DATA_DIR=$DATA_DIR
-Environment=UVICORN_SSL_CERTFILE=$SSL_CERTFILE
-Environment=UVICORN_SSL_KEYFILE=$SSL_KEYFILE
 ExecStart=$VENV_DIR/bin/uvicorn \
-  \\${APP_MODULE} --host 0.0.0.0 --port $APP_PORT --log-level info \
-  --ssl-certfile $SSL_CERTFILE --ssl-keyfile $SSL_KEYFILE
+  \\${APP_MODULE} --host 0.0.0.0 --port $APP_PORT --log-level info
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
@@ -211,13 +204,13 @@ post_checks() {
   echo "[INFO] systemd service listening on :$APP_PORT"
   if command -v curl >/dev/null 2>&1; then
     sleep 2
-    echo "[INFO] Health check (HTTPS):"
-    curl -skf "https://127.0.0.1:${APP_PORT}/bot1api/microservices" || true
+    echo "[INFO] Health check (HTTP):"
+    curl -sf "http://127.0.0.1:${APP_PORT}/bot1api/microservices" || true
   fi
 }
 
 main() {
-  echo "[INFO] One-click install (systemd server over HTTPS only)"
+  echo "[INFO] One-click install (systemd server over HTTP only)"
   require_ubuntu
   ensure_dirs
   fetch_code
@@ -237,7 +230,7 @@ main() {
   fi
 
   post_checks
-  echo "[DONE] Server: https://<server-ip>:$APP_PORT  Code: '$CODE_DIR'  Logs Volume: '$LOGS_VOLUME'  Data: '$DATA_DIR'"
+  echo "[DONE] Server: http://<server-ip>:$APP_PORT  Code: '$CODE_DIR'  Logs Volume: '$LOGS_VOLUME'  Data: '$DATA_DIR'"
 }
 
 main "$@"
