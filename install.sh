@@ -150,8 +150,7 @@ Environment=APP_MODULE=$APP_MODULE
 Environment=HOST_SETTINGS_DIR=$HOST_SETTINGS_DIR
 Environment=LOG_DIR=$LOG_DIR
 Environment=DATA_DIR=$DATA_DIR
-ExecStart=$VENV_DIR/bin/uvicorn \
-  \\${APP_MODULE} --host 0.0.0.0 --port $APP_PORT --log-level info
+ExecStart=$VENV_DIR/bin/uvicorn ${APP_MODULE} --host 0.0.0.0 --port $APP_PORT --log-level info
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
