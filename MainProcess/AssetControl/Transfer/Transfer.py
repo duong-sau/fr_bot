@@ -146,11 +146,11 @@ def transfer_spot_to_swap(exchange, amount):
     :param exchange: Sàn giao dịch để thực hiện chuyển tiền.
     :param amount: Số lượng tiền cần chuyển.
     """
-    amount = amount - 1
     if exchange == EXCHANGE.BINANCE:
         transfer = binance.transfer(code='USDT', amount=amount, fromAccount='spot', toAccount='swap')
         tunel_log(transfer)
     elif exchange == EXCHANGE.BITGET:
+        amount = amount - 0.04  # trừ phí rút trên APTOS
         transfer = bitget.transfer(code='USDT', amount=amount, fromAccount='spot', toAccount='swap')
         tunel_log(transfer)
     elif exchange == EXCHANGE.GATE:
