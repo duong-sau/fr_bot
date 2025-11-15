@@ -165,9 +165,7 @@ Environment=LOG_DIR=$LOG_DIR
 Environment=DATA_DIR=$DATA_DIR
 Environment=UVICORN_SSL_CERTFILE=$SSL_CERTFILE
 Environment=UVICORN_SSL_KEYFILE=$SSL_KEYFILE
-ExecStart=$VENV_DIR/bin/uvicorn \
-  \\${APP_MODULE} --host 0.0.0.0 --port $APP_PORT --log-level info \
-  --ssl-certfile $SSL_CERTFILE --ssl-keyfile $SSL_KEYFILE
+ExecStart=$VENV_DIR/bin/uvicorn ${APP_MODULE} --host 0.0.0.0 --port $APP_PORT --log-level info
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
