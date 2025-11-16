@@ -125,6 +125,10 @@ def create_asset_snapshot():
     data = asset_reporter.take_snapshot()
     return data
 
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
 
 if __name__ == "__main__":
     # Configurable host/port and optional SSL via environment variables
