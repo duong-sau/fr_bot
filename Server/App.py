@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from fastapi.middleware.cors import CORSMiddleware
 
+from Server.AppCore import AppCore
 from Server.ServiceManager.MicroserviceManager import Microservice
 
 app = FastAPI()
