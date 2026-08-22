@@ -6,8 +6,8 @@ import json
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
+import Config
 from fr_ccxt import CCXTWrapper
-from Core.secret import get_secret
 from Core.Tool import step, clear_console
 from Core.Define import convert_exchange_to_name
 from Define import transfer_done_file, SERVICE_NAME, root_path, transfer_status_json_file, exchange1, exchange2
@@ -91,26 +91,29 @@ class AssetProcess:
 
 
     def tick(self):
-        bitget_asset_info =  self.bitget_tracker.get_future_account_balance()
-        gate_asset_info = self.gate_tracker.get_future_account_balance()
+        bitget_resp = self.bitget_tracker.get_future_account_balance()
+        gate_resp = self.gate_tracker.get_future_account_balance()
 
-        total = bitget_asset_info.total_margin_balance + gate_asset_info.total_margin_balance
+        bitget_total = float(bitget_resp["balances"].get("USDT", {}).get("total", 0.0))
+        gate_total = float(gate_resp["balances"].get("USDT", {}).get("total", 0.0))
+
+        total = bitget_total + gate_total
         min_balance = total / 2 - total * self.MIN_ASSET_DIFF
         self.asset = {
-            convert_exchange_to_name(exchange1): bitget_asset_info,
-            convert_exchange_to_name(exchange2): gate_asset_info,
+            convert_exchange_to_name(exchange1): bitget_total,
+            convert_exchange_to_name(exchange2): gate_total,
             'estimated_min_balance': min_balance,
         }
 
         if not self.in_transfer:
             # Nếu chênh lệch giữa 2 sàn quá 20% tổng asset thì chuyển lượng chênh lệch (làm tròn đến 10 USDT) từ sàn ít hơn sang sàn nhiều hơn
-            total_asset = bitget_asset_info.total_margin_balance + gate_asset_info.total_margin_balance
-            diff = abs(bitget_asset_info.total_margin_balance - gate_asset_info.total_margin_balance)
+            total_asset = bitget_total + gate_total
+            diff = abs(bitget_total - gate_total)
             if total_asset > 0 and diff / total_asset > self.MIN_ASSET_DIFF:
                 move_amount = int(diff/2 // 10) * 10  # Làm tròn xuống đến 10 USDT
                 if move_amount == 0:
                     raise ValueError("The difference is too small to transfer, please check your balances.")
-                if bitget_asset_info.total_margin_balance > gate_asset_info.total_margin_balance:
+                if bitget_total > gate_total:
 
                     self.transfer(convert_exchange_to_name(exchange1), convert_exchange_to_name(exchange2), move_amount)
                 else:
@@ -131,9 +134,9 @@ if __name__ == '__main__':
     clear_console()
     asset_control_log("Starting asset balance process...")
 
-    api_info = get_secret()
-    bitget_info = api_info['bitget']
-    gate_info = api_info['gate']
+    creds = Config.get_credentials(exchange1, exchange2)
+    bitget_info = creds['bitget']
+    gate_info = creds['gate']
 
     bitget_wrapper = CCXTWrapper(
         'bitget',
@@ -166,8 +169,8 @@ if __name__ == '__main__':
             status = asset_process.get_status()
 
 
-            step_string1 = f"Bitget: {asset['bitget'].total_margin_balance} USDT"
-            step_string2 = f"Gate: {asset['gate'].total_margin_balance} USDT"
+            step_string1 = f"Bitget: {asset['bitget']} USDT"
+            step_string2 = f"Gate: {asset['gate']} USDT"
             step_string3 = f"Estimated Min Balance: {asset['estimated_min_balance']} USDT"
             step_strings = [step_string1, step_string2, step_string3]
             if status :

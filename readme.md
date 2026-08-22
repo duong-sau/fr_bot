@@ -39,7 +39,7 @@ Thành phần chính:
   `Notification/Dockerfile`)
   - Tail file `logs/discord_simple.log` (hoặc file chỉ định qua `LOG_FILE`) mỗi `LOG_INTERVAL` giây (mặc định
     5s) và forward nội dung mới lên Discord qua webhook.
-- **Core/**: tiện ích dùng chung (`Define.py`, `Tool.py`, `Logger.py`, `secret.py`).
+- **Core/**: tiện ích dùng chung (`Define.py`, `Tool.py`, `Logger.py`).
 - **fr_ccxt/**: wrapper mỏng quanh `ccxt` (`CCXTWrapper`), chuẩn hoá balance futures về một shape chung.
 
 Cấu trúc thư mục đáng chú ý:
@@ -50,6 +50,7 @@ Cấu trúc thư mục đáng chú ý:
 - `Notification/` – Discord log relay + Dockerfile
 - `Core/` – tiện ích chung
 - `fr_ccxt/` – wrapper ccxt cho balance futures
+- `Tools/` – script vận hành (vd `manage_keys.py` để quản lý API key), không phải service dài hạn
 - `tests/` – unittest, hiện chỉ cover `fr_ccxt`
 
 Lưu ý: `Core/Exchange/Exchange.py` còn tồn tại trong repo nhưng không còn được import ở đâu — là code cũ
@@ -214,15 +215,14 @@ AssetControl và Transfer.py không gọi nhau qua RPC — chúng đọc/ghi 2 f
 
 ## Credentials (AWS Secrets Manager)
 
-Có **hai** đường load credentials khác nhau trong repo, không nên coi là tương đương:
-- `Config.get_credentials()` (dùng bởi ADLControl và `Transfer.py`) — đọc secret **`exchange_key`** ở region
-  **`ap-southeast-1`**. Nếu không đọc được secret, process sẽ `sys.exit(1)` (không có fallback file JSON local
-  nữa).
-- `Core/secret.py:get_secret()` (dùng bởi `AssetControl/Main.py`) — đọc secret **`bot1_exchange_key`** ở
-  region **`ap-southeast-2`**.
+Cả ba process (ADLControl, AssetControl, `Transfer.py`) dùng chung một đường load credentials:
+`Config.get_credentials()`, đọc secret **`exchange_key`** ở region **`ap-southeast-1`**. Nếu không đọc được
+secret, process sẽ `sys.exit(1)` (không có fallback file JSON local).
 
-Khi cập nhật/luân chuyển API key, nhớ cập nhật **cả hai** secret ở đúng region tương ứng, nếu không AssetControl
-và ADLControl sẽ dùng key khác nhau (hoặc một bên lỗi vì thiếu key).
+Để xem/cập nhật key mà không phải sửa tay JSON trên AWS Console, dùng `Tools/manage_keys.py` (xem
+`Tools/manage_keys.py --help`). Sau khi đổi key, restart container liên quan
+(`adlcontrol_container`/`assetcontrol_container`) để process đọc lại credentials — chúng chỉ đọc secret một lần
+lúc khởi động.
 
 ---
 
@@ -231,6 +231,10 @@ và ADLControl sẽ dùng key khác nhau (hoặc một bên lỗi vì thiếu ke
   build/run Docker cho ADL/Asset/Discord (mặc định `SKIP_MICROSERVICES=1`, bỏ qua phần Docker).
 - `rebuild_docker.sh` – rebuild lại 3 image (ADL/Asset/Discord) và tạo lại container, dùng **host bind mount**
   cho log/settings (đúng với cách `MicroserviceManager.py` mount).
+- `Tools/manage_keys.py` – xem/cập nhật API key trong secret `exchange_key` (AWS Secrets Manager) mà không cần
+  vào AWS Console. `python Tools/manage_keys.py list` liệt kê key đã che bớt; `python Tools/manage_keys.py set
+  <exchange> [--restart]` nhập key mới cho một sàn (không echo ra terminal) rồi ghi đè đúng block của sàn đó,
+  `--restart` tự restart `adlcontrol_container`/`assetcontrol_container` sau khi cập nhật.
 
 Một số script lịch sử khác (`start_adl.sh`, `start_asset.sh`, ...) nếu còn sót trên máy chủ cũ không còn được
 bảo trì — ưu tiên dùng API FastAPI hoặc 2 script trên.

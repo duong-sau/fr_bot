@@ -50,15 +50,20 @@ Everything runtime-configurable lives outside the repo under `_settings/` (path 
 derived from `root_path`. Inside Docker images, the Dockerfiles copy the repo to
 `/home/ubuntu/fr_bot/code` and symlink `/app/code` → it, so both the "new" and "legacy" paths resolve.
 
-## Credentials — two different loaders (don't assume they're interchangeable)
+## Credentials — single unified loader
 
-- `Config.get_credentials()` (used by ADLControl and Transfer.py) reads AWS Secrets Manager secret
-  `exchange_key` in region `ap-southeast-1`, expects a JSON blob keyed by exchange name, and hard-`sys.exit(1)`s
-  if the secret can't be loaded (no local-file fallback).
-- `Core/secret.py:get_secret()` (used by AssetControl/Main.py) reads a **different** secret,
-  `bot1_exchange_key`, in region `ap-southeast-2`.
+All three processes (ADLControl, AssetControl, Transfer.py) load credentials the same way:
+`Config.get_credentials(exchange1, exchange2)` reads AWS Secrets Manager secret `exchange_key` in region
+`ap-southeast-1`, expects a JSON blob keyed by exchange name, and hard-`sys.exit(1)`s if the secret can't be
+loaded (no local-file fallback). There used to be a second, separate loader (`Core/secret.py`, secret
+`bot1_exchange_key` in `ap-southeast-2`) used only by AssetControl — it has been removed; AssetControl now
+calls `Config.get_credentials()` like everything else.
 
-When touching credential loading, check which entrypoint you're editing — the two are not unified.
+Use `Tools/manage_keys.py` to view (masked) or update keys in `exchange_key` instead of hand-editing the
+secret's JSON in the AWS Console — it does a read-modify-write against the single exchange's block so other
+exchanges' credentials aren't touched. Credentials are only read once at process startup, so a key update
+requires restarting the affected container(s) (`adlcontrol_container`, `assetcontrol_container`) to take
+effect — `manage_keys.py set` prints this reminder, and `--restart` will do it for you.
 
 ## Exchange access
 
