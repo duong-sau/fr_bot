@@ -11,9 +11,8 @@ thứ tự bên dưới.
 
 ## 1. Yêu cầu trước khi bắt đầu
 
-- Một máy chủ **Ubuntu** (khuyến nghị 22.04/24.04), có thể SSH vào bằng user có quyền `sudo`.
-- User đó nên tên là `ubuntu` (mặc định của script). Nếu dùng user khác, xem mục "Đổi đường dẫn mặc định"
-  bên dưới.
+- Một máy chủ **Ubuntu** (khuyến nghị 22.04/24.04), SSH vào bằng đúng user tên `ubuntu` có quyền `sudo` (script
+  dùng cố định đường dẫn `/home/ubuntu/fr_bot/...`, không đổi được qua user khác).
 - Máy có kết nối Internet (để `apt-get` cài Python/git/Docker và `git clone` code từ GitHub).
 
 ---
@@ -41,9 +40,14 @@ biết tìm file ở đâu.
 
 Áp dụng cho máy trắng, chưa có gì cả (kể cả code) — chỉ cần tải riêng file `install.sh` rồi chạy, script tự
 `git clone` code vào đúng `/home/ubuntu/fr_bot/code` qua HTTPS (repo public, không cần SSH key hay đăng nhập
-gì cả):
+gì cả).
+
+SSH vào server xong, đứng ở thư mục home của user (`cd ~`, thường là `/home/ubuntu`) rồi chạy — không quan
+trọng tải `install.sh` vào đâu vì script tự copy code sang `/home/ubuntu/fr_bot/code`, nhưng nên đứng ở `~`
+cho gọn, tránh lẫn với thư mục khác:
 
 ```bash
+cd ~
 curl -fsSL https://raw.githubusercontent.com/duong-sau/fr_bot/master/install.sh -o install.sh
 chmod +x install.sh
 ./install.sh
@@ -62,7 +66,8 @@ Trong lúc chạy, script sẽ hỏi `sudo` password (để cài package, tạo 
    không còn báo lỗi dừng cài như trước nữa.
 6. Cài Server thành **systemd service** tên `frbot-server.service`, chạy `uvicorn` ở `http://127.0.0.1:8000`
    (chỉ nghe trên localhost — muốn truy cập từ ngoài thì cần thêm reverse proxy, ngoài phạm vi tài liệu này).
-7. Mặc định **bỏ qua** phần build/run Docker cho ADLControl/AssetControl (xem `SKIP_MICROSERVICES` bên dưới).
+7. Mặc định **bỏ qua** phần build/run Docker cho ADLControl/AssetControl — hai service này bật sau qua API
+   `PUT /bot1api/microservices/{id}/start` (server tự `docker build`/`docker create` khi được gọi).
 
 Cài xong sẽ thấy dòng `[DONE] Server: http://127.0.0.1:8000 ...` — nghĩa là Server đã chạy.
 
@@ -198,20 +203,7 @@ cd /home/ubuntu/fr_bot/code
 
 ---
 
-## 7. Đổi đường dẫn/tuỳ chọn mặc định (không bắt buộc)
-
-Muốn đổi user, port, hay bật luôn Docker cho ADL/Asset khi cài, truyền biến môi trường trước khi chạy:
-
-```bash
-APP_PORT=9000 SKIP_MICROSERVICES=0 ./install.sh
-```
-
-Các biến hay dùng: `APP_ROOT` (mặc định `/home/ubuntu/fr_bot`), `APP_PORT` (mặc định `8000`),
-`GIT_REF` (nhánh git, mặc định `master`), `SKIP_MICROSERVICES` (`1`=bỏ qua Docker, `0`=build/run luôn ADL+Asset+Discord).
-
----
-
-## 8. Sự cố thường gặp
+## 7. Sự cố thường gặp
 
 - **`sudo: a password is required`** — SSH vào bằng user có quyền sudo và nhập password khi được hỏi; không
   chạy script qua kênh không tương tác (ví dụ script tự động) nếu chưa cấu hình `sudo` không cần mật khẩu.
