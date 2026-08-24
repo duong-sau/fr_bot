@@ -26,7 +26,7 @@ IMAGE_DISCORD="${IMAGE_DISCORD:-discord_shared_image}"
 CONTAINER_ADL="${CONTAINER_ADL:-adlcontrol_container}"
 CONTAINER_ASSET="${CONTAINER_ASSET:-assetcontrol_container}"
 CONTAINER_DISCORD="${CONTAINER_DISCORD:-discord_shared_container}"
-GIT_REPO="${GIT_REPO:-git@github.com:duong-sau/fr_bot.git}"
+GIT_REPO="${GIT_REPO:-https://github.com/duong-sau/fr_bot.git}"
 GIT_REF="${GIT_REF:-master}"
 # ---------------------------------------
 
