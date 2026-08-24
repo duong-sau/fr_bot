@@ -53,17 +53,19 @@ derived from `root_path`. Inside Docker images, the Dockerfiles copy the repo to
 ## Credentials — single unified loader
 
 All three processes (ADLControl, AssetControl, Transfer.py) load credentials the same way:
-`Config.get_credentials(exchange1, exchange2)` reads AWS Secrets Manager secret `exchange_key` in region
-`ap-southeast-1`, expects a JSON blob keyed by exchange name, and hard-`sys.exit(1)`s if the secret can't be
-loaded (no local-file fallback). There used to be a second, separate loader (`Core/secret.py`, secret
-`bot1_exchange_key` in `ap-southeast-2`) used only by AssetControl — it has been removed; AssetControl now
-calls `Config.get_credentials()` like everything else.
+`Config.get_credentials(exchange1, exchange2)` first tries AWS Secrets Manager secret `exchange_key` in region
+`ap-southeast-1` (JSON blob keyed by exchange name); if that call fails (no AWS credentials, no network, etc.)
+it falls back to a local JSON file with the same shape at `<root_path>/code/_settings/exchange_key.json`
+(`Config.LOCAL_KEY_FILE`); if neither source yields data it hard-`sys.exit(1)`s. There used to be a second,
+separate loader (`Core/secret.py`, secret `bot1_exchange_key` in `ap-southeast-2`) used only by AssetControl —
+it has been removed; AssetControl now calls `Config.get_credentials()` like everything else.
 
-Use `Tools/manage_keys.py` to view (masked) or update keys in `exchange_key` instead of hand-editing the
-secret's JSON in the AWS Console — it does a read-modify-write against the single exchange's block so other
-exchanges' credentials aren't touched. Credentials are only read once at process startup, so a key update
-requires restarting the affected container(s) (`adlcontrol_container`, `assetcontrol_container`) to take
-effect — `manage_keys.py set` prints this reminder, and `--restart` will do it for you.
+Use `Tools/manage_keys.py` to view (masked) or update keys instead of hand-editing JSON — it does a
+read-modify-write against the single exchange's block so other exchanges' credentials aren't touched. By
+default it targets the AWS secret; pass `--local` to read/write `exchange_key.json` instead (handy for local
+dev without AWS credentials). Credentials are only read once at process startup, so a key update requires
+restarting the affected container(s) (`adlcontrol_container`, `assetcontrol_container`) to take effect —
+`manage_keys.py set` prints this reminder, and `--restart` will do it for you.
 
 ## Exchange access
 

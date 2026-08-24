@@ -1,9 +1,16 @@
 import json
+import os
 import sys
 
 import boto3
+import Define
 from Core.Define import EXCHANGE
 from Core.Tool import check_config_empty_by_error
+
+# Fallback for local/dev use when AWS Secrets Manager isn't reachable: a JSON file
+# with the same shape as the `exchange_key` secret, e.g.
+# { "bitget": {"api_key": "...", "api_secret": "...", "password": "..."}, "gate": { ... } }
+LOCAL_KEY_FILE = os.path.join(Define.root_path, "code", "_settings", "exchange_key.json")
 
 
 def _load_exchange_config_from_secrets():
@@ -21,13 +28,29 @@ def _load_exchange_config_from_secrets():
         resp = client.get_secret_value(SecretId='exchange_key')
         secret_str = resp.get('SecretString')
         if not secret_str:
-            print("AWS Secrets Manager returned no SecretString; fallback to exchange.json")
+            print("AWS Secrets Manager returned no SecretString.")
             return None
         data = json.loads(secret_str)
         print(f"Loaded exchange config from AWS Secrets Manager: exchange_key")
         return data
     except Exception as e:
-        print(f"Failed to load secrets from AWS Secrets Manager: {e}. Fallback to exchange.json")
+        print(f"Failed to load secrets from AWS Secrets Manager: {e}")
+        return None
+
+
+def _load_exchange_config_from_local_file():
+    """
+    Fallback for local/dev use: read credentials from LOCAL_KEY_FILE instead of AWS.
+    """
+    if not os.path.exists(LOCAL_KEY_FILE):
+        return None
+    try:
+        with open(LOCAL_KEY_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        print(f"Loaded exchange config from local file: {LOCAL_KEY_FILE}")
+        return data
+    except Exception as e:
+        print(f"Failed to load local exchange key file {LOCAL_KEY_FILE}: {e}")
         return None
 
 
@@ -50,6 +73,11 @@ def get_credentials(exchange1: EXCHANGE, exchange2: EXCHANGE):
 
     data = _load_exchange_config_from_secrets()
     if data is None:
+        data = _load_exchange_config_from_local_file()
+    if data is None:
+        print(
+            f"Could not load credentials from AWS Secrets Manager or local file ({LOCAL_KEY_FILE})."
+        )
         sys.exit(1)
 
     # Prepare default empty credentials

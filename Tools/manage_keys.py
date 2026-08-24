@@ -2,10 +2,17 @@
 CLI để xem/cập nhật exchange API key trong AWS Secrets Manager (secret `exchange_key`,
 region `ap-southeast-1`) mà không phải sửa tay JSON trên AWS Console.
 
+Dùng --local để thao tác trên file local (<root_path>/code/_settings/exchange_key.json)
+thay vì AWS — đây là nguồn fallback mà Config.get_credentials() đọc khi không kết nối
+được AWS Secrets Manager. Tiện cho chạy/test local không có AWS credentials.
+
 Usage:
     python Tools/manage_keys.py list
     python Tools/manage_keys.py set bitget
     python Tools/manage_keys.py set gate --restart
+
+    python Tools/manage_keys.py list --local
+    python Tools/manage_keys.py set bitget --local
 """
 import argparse
 import json
@@ -20,6 +27,13 @@ from getpass import getpass
 
 SECRET_NAME = "exchange_key"
 REGION = "ap-southeast-1"
+
+# Cùng công thức root_path với Define.py, để trỏ đúng file mà Config.py đọc làm fallback.
+if os.name == "nt":
+    _ROOT_PATH = "C:\\job\\dim\\fr_bot\\"
+else:
+    _ROOT_PATH = "/home/ubuntu/fr_bot"
+LOCAL_KEY_FILE = os.path.join(_ROOT_PATH, "code", "_settings", "exchange_key.json")
 
 EXCHANGE_FIELDS = {
     "binance": ["api_key", "api_secret"],
@@ -44,6 +58,19 @@ def put_secret(client, data):
     client.put_secret_value(SecretId=SECRET_NAME, SecretString=json.dumps(data, indent=2))
 
 
+def fetch_local():
+    if not os.path.exists(LOCAL_KEY_FILE):
+        return {}
+    with open(LOCAL_KEY_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def put_local(data):
+    os.makedirs(os.path.dirname(LOCAL_KEY_FILE), exist_ok=True)
+    with open(LOCAL_KEY_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
 def mask(value):
     if not value:
         return "(not set)"
@@ -53,8 +80,12 @@ def mask(value):
 
 
 def cmd_list(args):
-    client = get_client()
-    data = fetch_secret(client)
+    if args.local:
+        data = fetch_local()
+        print(f"(reading from local file: {LOCAL_KEY_FILE})")
+    else:
+        client = get_client()
+        data = fetch_secret(client)
     for exchange, fields in EXCHANGE_FIELDS.items():
         block = data.get(exchange, {})
         print(f"[{exchange}]")
@@ -68,8 +99,8 @@ def cmd_set(args):
         print(f"Unknown exchange '{exchange}'. Must be one of: {', '.join(EXCHANGE_FIELDS)}", file=sys.stderr)
         sys.exit(1)
 
-    client = get_client()
-    data = fetch_secret(client)
+    client = None if args.local else get_client()
+    data = fetch_local() if args.local else fetch_secret(client)
     block = data.get(exchange, {})
 
     print(f"Setting credentials for '{exchange}'. Leave blank to keep the current value.")
@@ -81,8 +112,12 @@ def cmd_set(args):
             block[field] = entered
     data[exchange] = block
 
-    put_secret(client, data)
-    print(f"Updated '{exchange}' in secret '{SECRET_NAME}' ({REGION}).")
+    if args.local:
+        put_local(data)
+        print(f"Updated '{exchange}' in local file '{LOCAL_KEY_FILE}'.")
+    else:
+        put_secret(client, data)
+        print(f"Updated '{exchange}' in secret '{SECRET_NAME}' ({REGION}).")
     print(
         "Credentials are only read once at process startup — restart the affected "
         f"container(s) ({', '.join(RESTART_CONTAINERS)}) to pick up the new key."
@@ -101,10 +136,18 @@ def main():
     parser = argparse.ArgumentParser(description="Manage exchange API keys in AWS Secrets Manager.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("list", help="Show masked credentials for every exchange.")
+    list_parser = subparsers.add_parser("list", help="Show masked credentials for every exchange.")
+    list_parser.add_argument(
+        "--local", action="store_true",
+        help=f"Read from the local fallback file ({LOCAL_KEY_FILE}) instead of AWS Secrets Manager.",
+    )
 
     set_parser = subparsers.add_parser("set", help="Interactively set credentials for one exchange.")
     set_parser.add_argument("exchange", choices=list(EXCHANGE_FIELDS.keys()))
+    set_parser.add_argument(
+        "--local", action="store_true",
+        help=f"Write to the local fallback file ({LOCAL_KEY_FILE}) instead of AWS Secrets Manager.",
+    )
     set_parser.add_argument(
         "--restart", action="store_true",
         help="Restart adlcontrol_container/assetcontrol_container after updating the secret.",
