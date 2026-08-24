@@ -121,7 +121,65 @@ python3 Tools/manage_keys.py list --local   # xem lại key đã che bớt
 
 ---
 
-## 5. Các lệnh vận hành thường dùng sau khi đã cài
+## 5. Lấy API key sàn + điền chain/mạng/địa chỉ ví cho transfer.json
+
+### 5.1. Tạo API key trên từng sàn
+
+Mỗi sàn có trang quản lý API key riêng, tạo xong dán vào `config_menu.sh` mục **8** (hoặc
+`Tools/manage_keys.py set <exchange> --local`) như hướng dẫn ở mục 4.
+
+- **Bitget**: đăng nhập bitget.com → góc trên bên phải, avatar → **API Management** (Quản lý API) →
+  **Create API Key**. Cần bật quyền:
+  - `Read` + `Trade` cho **Futures** (bot đọc vị thế, đặt lệnh ADL).
+  - `Withdraw` nếu muốn `AssetControl` tự động chuyển tiền giữa hai sàn (bỏ qua nếu chỉ chạy ADLControl).
+  - Bitget bắt buộc đặt thêm một **Passphrase** lúc tạo key — đây chính là field `password` trong
+    `exchange_key.json` (script `manage_keys.py` sẽ tự hỏi field này khi chọn `bitget`/`bitget_sub`).
+  - `api_key`/`api_secret`/passphrase chỉ hiển thị **một lần duy nhất** lúc tạo — copy lại ngay, mất thì phải
+    tạo key mới.
+- **Gate.io**: đăng nhập gate.io → avatar góc phải → **API Management** (Quản lý API Key) → **Create API
+  Key**. Bật quyền `Futures` (Perpetual Futures – Trade) và `Wallet`/`Withdraw` nếu cần AssetControl tự
+  transfer. Gate không cần passphrase, chỉ có `api_key`/`api_secret`.
+- **Binance** (nếu dùng thay Bitget/Gate): API Management trong phần quản lý tài khoản, bật `Enable Futures`
+  và `Enable Withdrawals` nếu cần transfer tự động. Cũng chỉ có `api_key`/`api_secret`, không có passphrase.
+
+Khuyến nghị bật **IP whitelist** cho từng key, trỏ đúng IP public của server đang chạy `install.sh` — key bị
+lộ cũng không dùng được từ nơi khác. Nếu server chưa có IP tĩnh (VD EC2 chưa gắn Elastic IP) thì tạm bỏ qua
+whitelist, nhưng nhớ bật lại sau khi có IP cố định.
+
+### 5.2. Điền chain/mạng + địa chỉ ví cho transfer.json (mục 5 trong config_menu.sh)
+
+`transfer.json` là nơi khai báo **địa chỉ nạp tiền (USDT) trên từng sàn**, để `Transfer.py` tự rút từ sàn này
+và nạp sang sàn kia khi `AssetControl` phát hiện lệch số dư. Mỗi sàn có 3 trường:
+
+```json
+{
+  "bitget":  { "address": "0xabc...", "chain": "APT", "network": "APT" },
+  "gate":    { "address": "0xdef...", "chain": "APT", "network": "APT" }
+}
+```
+
+- **`address`** — địa chỉ ví nạp USDT của **tài khoản Spot/Funding trên sàn đó** (không phải ví cá nhân bên
+  ngoài). Lấy tại trang **Deposit / Nạp tiền** của sàn, chọn coin `USDT`, chọn đúng mạng (network) muốn dùng,
+  sàn sẽ hiện địa chỉ ví tương ứng — copy y nguyên.
+- **`chain`/`network`** — tên mạng blockchain dùng để chuyển USDT giữa 2 sàn, phải là tên **ccxt/sàn đó chấp
+  nhận** khi gọi rút tiền (`withdraw`) chứ không phải tên hiển thị tuỳ ý. Xem đúng tên tại trang Nạp/Rút tiền
+  của sàn (VD Bitget hiện `APT(Aptos)`, Gate hiện `APT`) rồi điền y hệt.
+- **Cực kỳ quan trọng**: `chain`/`network` khai báo cho sàn nhận (nơi bỏ tiền vào) phải là **cùng một mạng
+  blockchain** với mạng mà sàn gửi rút tiền ra — rút sai mạng so với mạng sàn kia hỗ trợ nạp sẽ **mất tiền
+  vĩnh viễn**, không sàn nào chịu trách nhiệm khôi phục. Nên chuyển thử một khoản nhỏ trước khi để bot tự động
+  chạy transfer thật.
+- Code hiện đang mặc định trừ thêm phí rút khi transfer trên mạng Aptos (xem
+  `MainProcess/AssetControl/Transfer/Transfer.py`, hàm `transfer_spot_to_swap`) — nếu đổi sang mạng khác cần
+  kiểm tra lại phí rút thực tế của mạng đó và sửa lại phần trừ phí trong code nếu cần.
+
+Điền qua menu (khuyến nghị, không cần nhớ đúng tên field JSON):
+```bash
+./config_menu.sh   # chọn mục 5, nhập address/chain/network cho từng sàn
+```
+
+---
+
+## 6. Các lệnh vận hành thường dùng sau khi đã cài
 
 ```bash
 # Xem log server
@@ -140,7 +198,7 @@ cd /home/ubuntu/fr_bot/code
 
 ---
 
-## 6. Đổi đường dẫn/tuỳ chọn mặc định (không bắt buộc)
+## 7. Đổi đường dẫn/tuỳ chọn mặc định (không bắt buộc)
 
 Muốn đổi user, port, hay bật luôn Docker cho ADL/Asset khi cài, truyền biến môi trường trước khi chạy:
 
@@ -153,7 +211,7 @@ Các biến hay dùng: `APP_ROOT` (mặc định `/home/ubuntu/fr_bot`), `APP_PO
 
 ---
 
-## 7. Sự cố thường gặp
+## 8. Sự cố thường gặp
 
 - **`sudo: a password is required`** — SSH vào bằng user có quyền sudo và nhập password khi được hỏi; không
   chạy script qua kênh không tương tác (ví dụ script tự động) nếu chưa cấu hình `sudo` không cần mật khẩu.
