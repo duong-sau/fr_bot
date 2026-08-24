@@ -28,7 +28,7 @@ class AppCore:
             time.sleep(5)
 
     def run(self):
-        main_thread = threading.Thread(target=self.main_loop)
+        main_thread = threading.Thread(target=self.main_loop, daemon=True)
         main_thread.start()
 
     def _to_bitget_symbol(self, internal_symbol: str) -> str:

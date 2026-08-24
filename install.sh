@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# FR Bot install script (systemd FastAPI server over HTTPS)
+# FR Bot install script (systemd FastAPI server)
 # - Server: uvicorn via systemd (APP_MODULE=Server.App:app)
-# - HTTP only
+# - HTTP only, bound to 127.0.0.1 (front it with a reverse proxy for external/HTTPS access)
 
 # ---------------- Config ----------------
 APP_ROOT="${APP_ROOT:-/home/ubuntu/fr_bot}"
@@ -98,7 +98,11 @@ fetch_code() {
       pushd "$CODE_DIR" >/dev/null
       git fetch --all --tags --prune
       git checkout "$GIT_REF"
-      git pull --rebase origin "$GIT_REF" || true
+      # Hard-sync to the remote ref rather than `pull --rebase`: any local diff in
+      # CODE_DIR (e.g. a stray `chmod +x` on a script) makes rebase refuse to run,
+      # and the previous `|| true` silently left the host on stale code. _settings/
+      # and venv/ are untracked (gitignored) so a hard reset never touches them.
+      git reset --hard "origin/$GIT_REF"
       popd >/dev/null
     else
       rm -rf "$CODE_DIR" && mkdir -p "$CODE_DIR"
@@ -138,7 +142,7 @@ install_systemd_server() {
 
   sudo bash -c "cat > '$UNIT_PATH'" <<EOF
 [Unit]
-Description=FR Bot FastAPI Server (uvicorn, HTTPS)
+Description=FR Bot FastAPI Server (uvicorn, HTTP, loopback)
 Wants=network-online.target
 After=network-online.target
 
@@ -204,21 +208,24 @@ post_checks() {
   echo "[INFO] systemd service listening on :$APP_PORT"
   if command -v curl >/dev/null 2>&1; then
     sleep 2
-    echo "[INFO] Health check (HTTPS):"
-    curl -skf "https://127.0.0.1:${APP_PORT}/bot1api/microservices" || true
+    echo "[INFO] Health check (HTTP):"
+    curl -sf "http://127.0.0.1:${APP_PORT}/bot1api/microservices" || true
   fi
 }
 
 main() {
-  echo "[INFO] One-click install (systemd server over HTTPS only)"
+  echo "[INFO] One-click install (systemd server, HTTP only)"
   require_ubuntu
   ensure_dirs
   fetch_code
-  if [[ ! -f "$HOST_SETTINGS_DIR/config.txt" ]]; then
-    echo "[ERROR] Missing settings file: '$HOST_SETTINGS_DIR/config.txt'" >&2
-    exit 1
-  fi
   setup_venv_and_deps
+
+  if [[ ! -f "$HOST_SETTINGS_DIR/config.txt" ]]; then
+    echo "[INFO] No settings found at '$HOST_SETTINGS_DIR' -- scaffolding defaults (bitget/gate) via manage_config.py"
+    "$VENV_DIR/bin/python" "$CODE_DIR/Tools/manage_config.py" init
+    echo "[WARN] exchange_key.json was created empty. Set real API keys before starting ADL/Asset control: '$CODE_DIR/config_menu.sh' or 'python Tools/manage_keys.py set <exchange> --local'."
+  fi
+
   install_systemd_server
 
   if [[ "$SKIP_MICROSERVICES" -eq 0 ]]; then
@@ -229,7 +236,7 @@ main() {
   fi
 
   post_checks
-  echo "[DONE] Server: https://<server-ip>:$APP_PORT  Code: '$CODE_DIR'  Logs Volume: '$LOGS_VOLUME'  Data: '$DATA_DIR'"
+  echo "[DONE] Server: http://127.0.0.1:$APP_PORT (loopback only)  Code: '$CODE_DIR'  Logs Volume: '$LOGS_VOLUME'  Data: '$DATA_DIR'"
 }
 
 main "$@"
