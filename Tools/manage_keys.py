@@ -38,7 +38,6 @@ LOCAL_KEY_FILE = os.path.join(_ROOT_PATH, "code", "_settings", "exchange_key.jso
 EXCHANGE_FIELDS = {
     "binance": ["api_key", "api_secret"],
     "bitget": ["api_key", "api_secret", "password"],
-    "bitget_sub": ["api_key", "api_secret", "password"],
     "gate": ["api_key", "api_secret"],
 }
 

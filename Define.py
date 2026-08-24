@@ -29,10 +29,10 @@ with open(setting_file, 'r', encoding='utf-8') as f:
     settings = f.read().strip().splitlines()
     exchange1 = settings[0]
     exchange2 = settings[1]
-    if exchange1 not in ['binance', 'bitget', 'bitget_sub', 'gate']:
-        raise ValueError(f"Invalid exchange1: {exchange1}. Must be one of ['binance', 'bitget', 'bitget_sub', 'gate']")
-    if exchange2 not in ['binance', 'bitget', 'bitget_sub', 'gate']:
-        raise ValueError(f"Invalid exchange2: {exchange2}. Must be one of ['binance', 'bitget', 'bitget_sub', 'gate']")
+    if exchange1 not in ['binance', 'bitget', 'gate']:
+        raise ValueError(f"Invalid exchange1: {exchange1}. Must be one of ['binance', 'bitget', 'gate']")
+    if exchange2 not in ['binance', 'bitget', 'gate']:
+        raise ValueError(f"Invalid exchange2: {exchange2}. Must be one of ['binance', 'bitget', 'gate']")
 
     exchange1 = convert_exchange_name_to_exchange(exchange1)
     exchange2 = convert_exchange_name_to_exchange(exchange2)

@@ -13,7 +13,11 @@ from MainProcess.ADLControl.Log import adl_log
 from MainProcess.ADLControl.Order import close_position_gate, close_position_bitget, fetch_position_bitget, \
     fetch_position_gate
 import Config
-from Core.Define import EXCHANGE
+from Core.Define import EXCHANGE, convert_exchange_to_name
+
+# Vị thế/đơn hàng trong ADLController được đọc/đóng bằng API riêng của Bitget và Gate
+# (khác field, khác cách tính contract size), nên cặp sàn cấu hình bắt buộc phải là Bitget+Gate.
+IGNORE_SYMBOLS = ["SXP", "OKB", "BGB", "EDEN", "ETH"]
 
 
 class ADLController:
@@ -111,8 +115,7 @@ class ADLController:
                     for p in pos:
                         p_symbol = p['symbol']
                         p_size = float(p['contracts']) * float(p['contractSize'])
-                        ignore_symbols = ["SXP", "OKB", "BGB", "EDEN", "ETH"]
-                        if any(ig in p_symbol for ig in ignore_symbols):
+                        if any(ig in p_symbol for ig in IGNORE_SYMBOLS):
                             continue
 
                         if exchange.id == 'bitget':
@@ -133,8 +136,7 @@ class ADLController:
         await self.gate_pro.load_markets()
         positions = await self.gate_pro.watch_positions()
         open_symbols = [p['symbol'] for p in positions if float(p.get('contracts', 0)) > 0]
-        ignore_symbols = ["SXP", "OKB", "BGB", "EDEN", "ETH"]
-        open_symbols = [s for s in open_symbols if not any(ig in s for ig in ignore_symbols)]
+        open_symbols = [s for s in open_symbols if not any(ig in s for ig in IGNORE_SYMBOLS)]
         with open(f"{root_path}/code/_settings/symbols.txt", 'w', encoding='utf-8') as file:
             for sym in open_symbols:
                 file.write(f"{sym}\n")
@@ -146,12 +148,21 @@ class ADLController:
         )
 
 if __name__ == '__main__':
+    # ADLController đọc/đóng vị thế bằng API riêng của từng sàn (fetch_position_bitget/_gate,
+    # close_position_bitget/_gate) nên chỉ hỗ trợ đúng cặp Bitget+Gate, bất kể thứ tự khai báo
+    # trong config.txt.
+    if {exchange1, exchange2} != {EXCHANGE.BITGET, EXCHANGE.GATE}:
+        raise ValueError(
+            f"ADLControl only supports the Bitget+Gate pair; config.txt has "
+            f"exchange1={exchange1}, exchange2={exchange2}."
+        )
+
     # Khởi tạo trực tiếp các instance ccxt/ccxt.pro thay vì dùng ExchangeManager
     creds = Config.get_credentials(exchange1, exchange2)
 
     # REST exchanges
-    bitget_creds = creds['bitget']
-    gate_creds = creds['gate']
+    bitget_creds = creds[convert_exchange_to_name(EXCHANGE.BITGET)]
+    gate_creds = creds[convert_exchange_to_name(EXCHANGE.GATE)]
 
     bitget_exchange = ccxt.bitget({
         'apiKey': bitget_creds['api_key'],

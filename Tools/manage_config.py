@@ -28,7 +28,7 @@ CONFIG_TXT = os.path.join(SETTINGS_DIR, "config.txt")
 SERVER_JSON = os.path.join(SETTINGS_DIR, "server.json")
 EXCHANGE_KEY_JSON = manage_keys.LOCAL_KEY_FILE
 
-VALID_EXCHANGES = ["binance", "bitget", "bitget_sub", "gate"]
+VALID_EXCHANGES = ["binance", "bitget", "gate"]
 DEFAULT_INI_FOLDER = "1_bitget_gate_ini"
 
 DEFAULT_SERVER_JSON = {
@@ -44,7 +44,6 @@ DEFAULT_BALANCE_JSON = {"max_diff_rate": 5}
 DEFAULT_TRANSFER_JSON = {
     "binance": {"address": "", "chain": "", "network": ""},
     "bitget": {"address": "", "chain": "", "network": ""},
-    "bitget_sub": {"address": "", "chain": "", "network": ""},
     "gate": {"address": "", "chain": "", "network": ""},
 }
 
@@ -141,7 +140,6 @@ def init_templates(interactive=True):
         write_json(EXCHANGE_KEY_JSON, {
             "binance": {"api_key": "", "api_secret": ""},
             "bitget": {"api_key": "", "api_secret": "", "password": ""},
-            "bitget_sub": {"api_key": "", "api_secret": "", "password": ""},
             "gate": {"api_key": "", "api_secret": ""},
         })
         created.append(EXCHANGE_KEY_JSON)

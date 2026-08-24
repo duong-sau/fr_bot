@@ -110,7 +110,7 @@ Menu hiện ra:
 ```
 
 Với việc setup API key: chọn **8**, script sẽ hỏi lần lượt `api_key`/`api_secret` (và `password` nếu là
-bitget/bitget_sub) cho từng sàn — gõ vào không hiện chữ trên màn hình (bảo mật), Enter bỏ trống để giữ nguyên
+bitget) cho từng sàn — gõ vào không hiện chữ trên màn hình (bảo mật), Enter bỏ trống để giữ nguyên
 giá trị cũ.
 
 Chạy nhanh không qua menu (dùng thẳng lệnh, tương đương mục 8):
@@ -138,7 +138,7 @@ Mỗi sàn có trang quản lý API key riêng, tạo xong dán vào `config_men
   - `Read` + `Trade` cho **Futures** (bot đọc vị thế, đặt lệnh ADL).
   - `Withdraw` nếu muốn `AssetControl` tự động chuyển tiền giữa hai sàn (bỏ qua nếu chỉ chạy ADLControl).
   - Bitget bắt buộc đặt thêm một **Passphrase** lúc tạo key — đây chính là field `password` trong
-    `exchange_key.json` (script `manage_keys.py` sẽ tự hỏi field này khi chọn `bitget`/`bitget_sub`).
+    `exchange_key.json` (script `manage_keys.py` sẽ tự hỏi field này khi chọn `bitget`).
   - `api_key`/`api_secret`/passphrase chỉ hiển thị **một lần duy nhất** lúc tạo — copy lại ngay, mất thì phải
     tạo key mới.
 - **Gate.io**: đăng nhập gate.io → avatar góc phải → **API Management** (Quản lý API Key) → **Create API

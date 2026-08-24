@@ -37,7 +37,7 @@ Processes don't talk to each other over RPC. They communicate through the filesy
 Everything runtime-configurable lives outside the repo under `_settings/` (path resolution described below),
 **not** in this codebase:
 
-- `config.txt` — 3 lines: `exchange1`, `exchange2` (one of `binance|bitget|bitget_sub|gate`), and the name of
+- `config.txt` — 3 lines: `exchange1`, `exchange2` (one of `binance|bitget|gate`), and the name of
   the INI config subfolder (e.g. `1_bitget_gate_ini`) to use.
 - `<ini>/balance.json` — `max_diff_rate` (percent) that triggers an asset transfer.
 - `<ini>/transfer.json` — deposit addresses/chains/networks per exchange, used by `Transfer.py`.
@@ -75,8 +75,8 @@ restarting the affected container(s) (`adlcontrol_container`, `assetcontrol_cont
   (`_parse_common_ccxt_balance`, `_parse_info_like_list`) over adding exchange-specific branches elsewhere.
 - ADLControl and Transfer.py instantiate `ccxt`/`ccxt.pro` exchange clients directly (no shared factory) —
   `options['defaultType'] = 'swap'` is set manually on each.
-- `Core/Define.py` defines the `EXCHANGE` enum and the only supported set: `BINANCE`, `BITGET`, `BITGET_SUB`,
-  `GATE` (`BYBIT`/`OKX` exist in the enum but aren't wired up anywhere).
+- `Core/Define.py` defines the `EXCHANGE` enum and the only supported set: `BINANCE`, `BITGET`, `GATE`
+  (`BYBIT`/`OKX` exist in the enum but aren't wired up anywhere).
 
 ## Logging
 

@@ -53,9 +53,6 @@ Cấu trúc thư mục đáng chú ý:
 - `Tools/` – script vận hành (vd `manage_keys.py` để quản lý API key), không phải service dài hạn
 - `tests/` – unittest, hiện chỉ cover `fr_ccxt`
 
-Lưu ý: `Core/Exchange/Exchange.py` còn tồn tại trong repo nhưng không còn được import ở đâu — là code cũ
-sót lại sau lần refactor sang `CCXTWrapper`, có thể bỏ qua khi đọc code.
-
 ---
 
 ## Yêu cầu hệ thống
@@ -76,8 +73,8 @@ python -m venv .venv
 
 Thư mục `_settings/` chứa:
 - `config.txt` (3 dòng):
-  1. exchange1 (binance|bitget|bitget_sub|gate)
-  2. exchange2 (binance|bitget|bitget_sub|gate)
+  1. exchange1 (binance|bitget|gate)
+  2. exchange2 (binance|bitget|gate)
   3. tên thư mục cấu hình INI (vd: `1_bitget_gate_ini`)
 - `<ini>/exchange.json` — không còn dùng nữa (credentials hiện lấy từ AWS Secrets Manager, xem mục
   "Credentials" bên dưới); có thể vẫn tồn tại trên máy cũ nhưng code không đọc nữa.
