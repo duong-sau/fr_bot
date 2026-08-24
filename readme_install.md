@@ -39,23 +39,10 @@ biết tìm file ở đâu.
 
 ## 3. Chạy install.sh
 
-### Cách 1 — máy đã có sẵn code (clone tay trước, ví dụ để lấy chính `install.sh`)
+Áp dụng cho máy trắng, chưa có gì cả (kể cả code) — chỉ cần tải riêng file `install.sh` rồi chạy, script tự
+`git clone` code vào đúng `/home/ubuntu/fr_bot/code` qua HTTPS (repo public, không cần SSH key hay đăng nhập
+gì cả):
 
-```bash
-cd /home/ubuntu/fr_bot/code   # hoặc thư mục bất kỳ đã có install.sh
-./install.sh
-```
-
-Nếu file chưa có quyền chạy:
-```bash
-chmod +x install.sh
-./install.sh
-```
-
-### Cách 2 — máy trắng, chưa có gì cả
-
-Chỉ cần tải riêng file `install.sh` (không cần clone cả repo trước) rồi chạy — script tự `git clone` code
-vào đúng `/home/ubuntu/fr_bot/code` qua HTTPS (repo public, không cần SSH key hay đăng nhập gì cả):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/duong-sau/fr_bot/master/install.sh -o install.sh
 chmod +x install.sh
