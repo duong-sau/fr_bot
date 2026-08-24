@@ -112,6 +112,16 @@ docker build -f MainProcess\ADLControl\Dockerfile -t adlprocess .
 docker build -f MainProcess\AssetControl\Dockerfile -t assetprocess .
 ```
 
+**Testing without real credentials/API calls**: set `DRY_RUN=1` before running `MainProcess/AssetControl/Main.py`
+to swap in `Core/FakeExchange.py` instead of real ccxt clients — `Config.get_credentials()` is skipped entirely,
+so no AWS/local `exchange_key.json` is needed. Seed each side's simulated USDT balance via
+`DRY_RUN_BALANCE_<EXCHANGE1_NAME>` / `DRY_RUN_BALANCE_<EXCHANGE2_NAME>` (uppercase, default `1000`) to exercise
+the balance-skew/transfer-decision logic in `AssetProcess.tick()`. In `DRY_RUN`, a triggered transfer is only
+logged (`"[DRY_RUN] Would transfer ..."`) — `Transfer/Transfer.py` is never spawned and no state file is
+written. `ADLControl` has no dry-run mode (its position-fetching logic is hardwired to Bitget's/Gate's live API
+shapes) and `Transfer.py` itself isn't dry-run-capable yet (its ccxt clients are built as module-level globals).
+Also see `Tools/verify_setup.py` for a read-only check of real, already-configured credentials.
+
 Building/starting containers on a target host is normally done through the Server's
 `PUT /bot1api/microservices/{id}/start` API rather than manual `docker create`, because that endpoint also
 ensures the container has the correct `frbot_logs` volume mounts and recreates it if not (see

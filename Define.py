@@ -15,6 +15,10 @@ NULL = None
 exchange1 = NULL
 exchange2 = NULL
 
+# DRY_RUN=1 (env var): AssetControl dùng Core.FakeExchange thay vì gọi API sàn thật,
+# không cần exchange_key.json/AWS credentials. Xem Core/FakeExchange.py.
+DRY_RUN = os.getenv("DRY_RUN", "").strip().lower() in ("1", "true", "yes")
+
 print(f"argv: {sys.argv}")
 if os.name == "nt":
     root_path = "C:\\job\\dim\\fr_bot\\"
