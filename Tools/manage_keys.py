@@ -25,6 +25,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import boto3
 from getpass import getpass
 
+from Core.Tool import ensure_utf8_stdout
+from Core.Verify import verify_exchange_credentials
+
+ensure_utf8_stdout()
+
 SECRET_NAME = "exchange_key"
 REGION = "ap-southeast-1"
 
@@ -122,6 +127,13 @@ def cmd_set(args):
         f"container(s) ({', '.join(RESTART_CONTAINERS)}) to pick up the new key."
     )
 
+    if not args.skip_verify:
+        print(f"\nVerifying '{exchange}' credentials with a read-only balance check...")
+        passed, message = verify_exchange_credentials(
+            exchange, block.get('api_key', ''), block.get('api_secret', ''), block.get('password')
+        )
+        print(f"[{exchange}] {'OK' if passed else 'FAILED'}: {message}")
+
     if args.restart:
         for container in RESTART_CONTAINERS:
             result = subprocess.run(["docker", "restart", container], capture_output=True, text=True)
@@ -150,6 +162,10 @@ def main():
     set_parser.add_argument(
         "--restart", action="store_true",
         help="Restart adlcontrol_container/assetcontrol_container after updating the secret.",
+    )
+    set_parser.add_argument(
+        "--skip-verify", action="store_true",
+        help="Skip the read-only fetch_balance check against the exchange after saving.",
     )
 
     args = parser.parse_args()

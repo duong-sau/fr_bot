@@ -100,7 +100,7 @@ def get_credentials(exchange1: EXCHANGE, exchange2: EXCHANGE):
         else:
             ex_enum = None
         if ex_enum is not None and (exchange1 == ex_enum or exchange2 == ex_enum):
-            check_config_empty_by_error([creds[name].get(k, '') for k in required_keys])
+            check_config_empty_by_error({k: creds[name].get(k, '') for k in required_keys})
 
     _fill_and_validate('bitget', ['api_key', 'api_secret', 'password'])
     _fill_and_validate('binance', ['api_key', 'api_secret'])

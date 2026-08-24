@@ -2,9 +2,23 @@ import json
 import math
 import time
 import os
+import sys
 import importlib
 
 import requests
+
+
+def ensure_utf8_stdout():
+    """
+    Trên Windows, console mặc định dùng codepage ANSI (vd cp1252) chứ không phải UTF-8,
+    nên print() text tiếng Việt có thể crash với UnicodeEncodeError. Gọi hàm này ở đầu
+    các CLI tương tác (Tools/*.py) để tránh lỗi này.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8')
+        except Exception:
+            pass
 
 # Lấy discord_config_path an toàn từ Define, có fallback
 try:
@@ -84,10 +98,10 @@ def write_log(message, filename):
         f.write(f"{timestamp} - {message}\n")
     # DONE
 
-def check_config_empty_by_error(fields):
-    for field in fields:
-        if not field:
-            raise ValueError(f"Missing configuration for {field}")
+def check_config_empty_by_error(fields: dict):
+    for name, value in fields.items():
+        if not value:
+            raise ValueError(f"Missing configuration for {name}")
 
 # Đọc webhook discord nếu có cấu hình
 webhook_url = ''

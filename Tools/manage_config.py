@@ -16,7 +16,13 @@ import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import manage_keys  # dung lai list/set exchange_key.json (co mask + getpass) thay vi viet lai
+
+import requests
+# Notification.Discord duoc import cuc bo (trong edit_discord_json), khong o dau file:
+# no import Define, ma Define doc config.txt ngay luc import -> se crash truoc khi
+# menu kip tao config.txt lan dau (muc 1 cua menu nay).
 
 if os.name == "nt":
     ROOT_PATH = "C:\\job\\dim\\fr_bot\\"
@@ -254,6 +260,12 @@ def edit_discord_json():
     write_json(path, data)
     print(f"Da luu {path}")
 
+    if webhook:
+        from Notification.Discord import send_to_discord
+        print("Dang gui tin nhan test toi Discord webhook...")
+        sent = send_to_discord(requests.Session(), webhook, "[config_menu] fr_bot: webhook hoat dong binh thuong.")
+        print("Gui thanh cong." if sent else "Gui that bai - kiem tra lai webhook URL.")
+
 
 def edit_server_json():
     data = read_json(SERVER_JSON, dict(DEFAULT_SERVER_JSON))
@@ -269,7 +281,7 @@ def edit_server_json():
 def edit_exchange_key():
     print(f"Se sua {EXCHANGE_KEY_JSON} (local fallback, khong dung AWS).")
     exchange = prompt_exchange("Exchange can sua", "bitget")
-    manage_keys.cmd_set(argparse.Namespace(exchange=exchange, local=True, restart=False))
+    manage_keys.cmd_set(argparse.Namespace(exchange=exchange, local=True, restart=False, skip_verify=False))
 
 
 MENU = """
