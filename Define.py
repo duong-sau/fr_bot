@@ -15,6 +15,10 @@ NULL = None
 exchange1 = NULL
 exchange2 = NULL
 
+# DRY_RUN=1 (env var): AssetControl dùng Core.FakeExchange thay vì gọi API sàn thật,
+# không cần exchange_key.json/AWS credentials. Xem Core/FakeExchange.py.
+DRY_RUN = os.getenv("DRY_RUN", "").strip().lower() in ("1", "true", "yes")
+
 print(f"argv: {sys.argv}")
 if os.name == "nt":
     root_path = "C:\\job\\dim\\fr_bot\\"
@@ -29,10 +33,10 @@ with open(setting_file, 'r', encoding='utf-8') as f:
     settings = f.read().strip().splitlines()
     exchange1 = settings[0]
     exchange2 = settings[1]
-    if exchange1 not in ['binance', 'bitget', 'bitget_sub', 'gate']:
-        raise ValueError(f"Invalid exchange1: {exchange1}. Must be one of ['binance', 'bitget', 'bitget_sub', 'gate']")
-    if exchange2 not in ['binance', 'bitget', 'bitget_sub', 'gate']:
-        raise ValueError(f"Invalid exchange2: {exchange2}. Must be one of ['binance', 'bitget', 'bitget_sub', 'gate']")
+    if exchange1 not in ['binance', 'bitget', 'gate']:
+        raise ValueError(f"Invalid exchange1: {exchange1}. Must be one of ['binance', 'bitget', 'gate']")
+    if exchange2 not in ['binance', 'bitget', 'gate']:
+        raise ValueError(f"Invalid exchange2: {exchange2}. Must be one of ['binance', 'bitget', 'gate']")
 
     exchange1 = convert_exchange_name_to_exchange(exchange1)
     exchange2 = convert_exchange_name_to_exchange(exchange2)

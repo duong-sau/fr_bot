@@ -37,7 +37,7 @@ Processes don't talk to each other over RPC. They communicate through the filesy
 Everything runtime-configurable lives outside the repo under `_settings/` (path resolution described below),
 **not** in this codebase:
 
-- `config.txt` — 3 lines: `exchange1`, `exchange2` (one of `binance|bitget|bitget_sub|gate`), and the name of
+- `config.txt` — 3 lines: `exchange1`, `exchange2` (one of `binance|bitget|gate`), and the name of
   the INI config subfolder (e.g. `1_bitget_gate_ini`) to use.
 - `<ini>/balance.json` — `max_diff_rate` (percent) that triggers an asset transfer.
 - `<ini>/transfer.json` — deposit addresses/chains/networks per exchange, used by `Transfer.py`.
@@ -75,8 +75,8 @@ restarting the affected container(s) (`adlcontrol_container`, `assetcontrol_cont
   (`_parse_common_ccxt_balance`, `_parse_info_like_list`) over adding exchange-specific branches elsewhere.
 - ADLControl and Transfer.py instantiate `ccxt`/`ccxt.pro` exchange clients directly (no shared factory) —
   `options['defaultType'] = 'swap'` is set manually on each.
-- `Core/Define.py` defines the `EXCHANGE` enum and the only supported set: `BINANCE`, `BITGET`, `BITGET_SUB`,
-  `GATE` (`BYBIT`/`OKX` exist in the enum but aren't wired up anywhere).
+- `Core/Define.py` defines the `EXCHANGE` enum and the only supported set: `BINANCE`, `BITGET`, `GATE`
+  (`BYBIT`/`OKX` exist in the enum but aren't wired up anywhere).
 
 ## Logging
 
@@ -111,6 +111,16 @@ require `_settings` at `root_path` and live exchange credentials. Build/run them
 docker build -f MainProcess\ADLControl\Dockerfile -t adlprocess .
 docker build -f MainProcess\AssetControl\Dockerfile -t assetprocess .
 ```
+
+**Testing without real credentials/API calls**: set `DRY_RUN=1` before running `MainProcess/AssetControl/Main.py`
+to swap in `Core/FakeExchange.py` instead of real ccxt clients — `Config.get_credentials()` is skipped entirely,
+so no AWS/local `exchange_key.json` is needed. Seed each side's simulated USDT balance via
+`DRY_RUN_BALANCE_<EXCHANGE1_NAME>` / `DRY_RUN_BALANCE_<EXCHANGE2_NAME>` (uppercase, default `1000`) to exercise
+the balance-skew/transfer-decision logic in `AssetProcess.tick()`. In `DRY_RUN`, a triggered transfer is only
+logged (`"[DRY_RUN] Would transfer ..."`) — `Transfer/Transfer.py` is never spawned and no state file is
+written. `ADLControl` has no dry-run mode (its position-fetching logic is hardwired to Bitget's/Gate's live API
+shapes) and `Transfer.py` itself isn't dry-run-capable yet (its ccxt clients are built as module-level globals).
+Also see `Tools/verify_setup.py` for a read-only check of real, already-configured credentials.
 
 Building/starting containers on a target host is normally done through the Server's
 `PUT /bot1api/microservices/{id}/start` API rather than manual `docker create`, because that endpoint also

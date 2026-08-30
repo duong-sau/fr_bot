@@ -16,7 +16,20 @@ import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import manage_keys  # dung lai list/set exchange_key.json (co mask + getpass) thay vi viet lai
+
+import requests
+from rich import box
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.syntax import Syntax
+from rich.table import Table
+
+from cli_style import console, print_error, print_header, print_info, print_section, print_success, print_warning
+# Notification.Discord duoc import cuc bo (trong edit_discord_json), khong o dau file:
+# no import Define, ma Define doc config.txt ngay luc import -> se crash truoc khi
+# menu kip tao config.txt lan dau (muc 1 cua menu nay).
 
 if os.name == "nt":
     ROOT_PATH = "C:\\job\\dim\\fr_bot\\"
@@ -28,7 +41,7 @@ CONFIG_TXT = os.path.join(SETTINGS_DIR, "config.txt")
 SERVER_JSON = os.path.join(SETTINGS_DIR, "server.json")
 EXCHANGE_KEY_JSON = manage_keys.LOCAL_KEY_FILE
 
-VALID_EXCHANGES = ["binance", "bitget", "bitget_sub", "gate"]
+VALID_EXCHANGES = ["binance", "bitget", "gate"]
 DEFAULT_INI_FOLDER = "1_bitget_gate_ini"
 
 DEFAULT_SERVER_JSON = {
@@ -44,7 +57,6 @@ DEFAULT_BALANCE_JSON = {"max_diff_rate": 5}
 DEFAULT_TRANSFER_JSON = {
     "binance": {"address": "", "chain": "", "network": ""},
     "bitget": {"address": "", "chain": "", "network": ""},
-    "bitget_sub": {"address": "", "chain": "", "network": ""},
     "gate": {"address": "", "chain": "", "network": ""},
 }
 
@@ -88,30 +100,27 @@ def write_config_txt(exchange1, exchange2, ini_folder):
 
 
 def prompt(label, current=""):
-    entered = input(f"{label} [{current}]: ").strip()
-    return entered if entered else current
+    entered = Prompt.ask(f"  [white]{label}[/]", default=current, console=console, show_default=True)
+    return entered.strip() if entered else current
 
 
 def prompt_exchange(label, current):
-    while True:
-        value = prompt(f"{label} ({'/'.join(VALID_EXCHANGES)})", current)
-        if value in VALID_EXCHANGES:
-            return value
-        print(f"  Khong hop le, phai la mot trong: {', '.join(VALID_EXCHANGES)}")
+    return Prompt.ask(f"  [white]{label}[/]", choices=VALID_EXCHANGES, default=current, console=console)
 
 
 def init_templates(interactive=True):
     """Tao cac file config mau con thieu. Khong bao gio ghi de file da co san."""
+    print_section("Khởi tạo / tái tạo file config mẫu")
     created = []
     skipped = []
 
     cfg = read_config_txt()
     if cfg is None:
         if interactive:
-            print("Chua co config.txt -> nhap thong tin de tao moi:")
+            print_info("Chưa có config.txt -> nhập thông tin để tạo mới:")
             exchange1 = prompt_exchange("exchange1", "bitget")
             exchange2 = prompt_exchange("exchange2", "gate")
-            ini_folder = prompt("Ten thu muc ini (vd 1_bitget_gate_ini)", DEFAULT_INI_FOLDER)
+            ini_folder = prompt("Tên thư mục ini (vd 1_bitget_gate_ini)", DEFAULT_INI_FOLDER)
         else:
             exchange1, exchange2, ini_folder = "bitget", "gate", DEFAULT_INI_FOLDER
         write_config_txt(exchange1, exchange2, ini_folder)
@@ -141,30 +150,39 @@ def init_templates(interactive=True):
         write_json(EXCHANGE_KEY_JSON, {
             "binance": {"api_key": "", "api_secret": ""},
             "bitget": {"api_key": "", "api_secret": "", "password": ""},
-            "bitget_sub": {"api_key": "", "api_secret": "", "password": ""},
             "gate": {"api_key": "", "api_secret": ""},
         })
         created.append(EXCHANGE_KEY_JSON)
 
-    print("\nDa tao:" if created else "\n(Khong tao file nao moi)")
-    for p in created:
-        print(f"  + {p}")
-    print("Da co san, giu nguyen:" if skipped else "")
-    for p in skipped:
-        print(f"  = {p}")
-    print(
-        "\nLuu y: exchange_key.json chi la khung rong (api_key/api_secret trong) - "
-        "dung `python Tools/manage_keys.py set <exchange> --local` de nhap key that."
+    console.print()
+    if created:
+        print_success("Đã tạo:")
+        for p in created:
+            console.print(f"    [success]+[/] {p}")
+    else:
+        print_info("(Không tạo file nào mới)")
+    if skipped:
+        print_info("Đã có sẵn, giữ nguyên:")
+        for p in skipped:
+            console.print(f"    [muted]=[/] {p}")
+    console.print()
+    print_warning(
+        "exchange_key.json chỉ là khung rỗng (api_key/api_secret trống) - "
+        "dùng `python Tools/manage_keys.py set <exchange> --local` để nhập key thật."
     )
 
 
 def view_all():
+    print_section("Tổng quan config hiện tại")
+    console.print(f"[muted]_settings dir:[/] {SETTINGS_DIR}")
     cfg = read_config_txt()
-    print(f"\n_settings dir: {SETTINGS_DIR}")
     if cfg is None:
-        print("config.txt: (chua co)")
+        print_error("config.txt: (chưa có)")
         return
-    print(f"config.txt: exchange1={cfg['exchange1']}, exchange2={cfg['exchange2']}, ini_folder={cfg['ini_folder']}")
+    console.print(
+        f"[accent]config.txt[/]: exchange1=[bold]{cfg['exchange1']}[/] "
+        f"exchange2=[bold]{cfg['exchange2']}[/] ini_folder=[bold]{cfg['ini_folder']}[/]"
+    )
     target_dir = ini_dir(cfg["ini_folder"])
 
     for label, path in [
@@ -173,80 +191,93 @@ def view_all():
         ("transfer.json", os.path.join(target_dir, "transfer.json")),
         ("config.json (discord)", os.path.join(target_dir, "config.json")),
     ]:
-        print(f"\n{label} ({path}):")
+        console.print()
+        console.print(f"[primary]{label}[/] [muted]{path}[/]")
         data = read_json(path)
         if data is None:
-            print("  (chua co)")
+            print_error("  (chưa có)")
         else:
-            print("  " + json.dumps(data, indent=2, ensure_ascii=False).replace("\n", "\n  "))
+            console.print(Syntax(
+                json.dumps(data, indent=2, ensure_ascii=False), "json",
+                theme="material", background_color="default", word_wrap=True,
+            ))
 
-    print(f"\nexchange_key.json ({EXCHANGE_KEY_JSON}):")
+    console.print()
+    console.print(f"[primary]exchange_key.json[/] [muted]{EXCHANGE_KEY_JSON}[/]")
     data = read_json(EXCHANGE_KEY_JSON)
     if data is None:
-        print("  (chua co)")
+        print_error("  (chưa có)")
     else:
+        table = Table(box=box.ROUNDED, border_style="primary")
+        table.add_column("Exchange", style="bold #03DAC6")
+        table.add_column("Field")
+        table.add_column("Value", style="#9E9E9E")
         for exchange, fields in manage_keys.EXCHANGE_FIELDS.items():
             block = data.get(exchange, {})
-            print(f"  [{exchange}]")
-            for field in fields:
-                print(f"    {field}: {manage_keys.mask(block.get(field, ''))}")
+            for i, field in enumerate(fields):
+                table.add_row(exchange if i == 0 else "", field, manage_keys.mask(block.get(field, "")))
+        console.print(table)
 
 
 def edit_config_txt():
+    print_section("Sửa config.txt")
     cfg = read_config_txt() or {"exchange1": "bitget", "exchange2": "gate", "ini_folder": DEFAULT_INI_FOLDER}
     exchange1 = prompt_exchange("exchange1", cfg["exchange1"])
     exchange2 = prompt_exchange("exchange2", cfg["exchange2"])
-    ini_folder = prompt("Ten thu muc ini", cfg["ini_folder"])
+    ini_folder = prompt("Tên thư mục ini", cfg["ini_folder"])
     write_config_txt(exchange1, exchange2, ini_folder)
-    print(f"Da luu {CONFIG_TXT}")
+    print_success(f"Đã lưu {CONFIG_TXT}")
 
 
 def edit_balance_json():
+    print_section("Sửa balance.json")
     cfg = read_config_txt()
     if cfg is None:
-        print("Chua co config.txt, tao truoc da (muc 1).")
+        print_error("Chưa có config.txt, tạo trước đã (mục 1).")
         return
     path = os.path.join(ini_dir(cfg["ini_folder"]), "balance.json")
     data = read_json(path, dict(DEFAULT_BALANCE_JSON))
     current = data.get("max_diff_rate", 5)
     while True:
-        raw = prompt("max_diff_rate (% lech balance de kich hoat transfer, 0-100)", str(current))
+        raw = prompt("max_diff_rate (% lệch balance để kích hoạt transfer, 0-100)", str(current))
         try:
             value = float(raw)
         except ValueError:
-            print("  Phai la so.")
+            print_error("  Phải là số.")
             continue
         if not (0 < value < 100):
-            print("  Phai trong khoang (0, 100).")
+            print_error("  Phải trong khoảng (0, 100).")
             continue
         break
     data["max_diff_rate"] = value
     write_json(path, data)
-    print(f"Da luu {path}")
+    print_success(f"Đã lưu {path}")
 
 
 def edit_transfer_json():
+    print_section("Sửa transfer.json")
     cfg = read_config_txt()
     if cfg is None:
-        print("Chua co config.txt, tao truoc da (muc 1).")
+        print_error("Chưa có config.txt, tạo trước đã (mục 1).")
         return
     path = os.path.join(ini_dir(cfg["ini_folder"]), "transfer.json")
     data = read_json(path, {})
     for exchange in [cfg["exchange1"], cfg["exchange2"]]:
         block = data.get(exchange, {"address": "", "chain": "", "network": ""})
-        print(f"\n[{exchange}]")
-        block["address"] = prompt("  address", block.get("address", ""))
-        block["chain"] = prompt("  chain", block.get("chain", ""))
-        block["network"] = prompt("  network", block.get("network", ""))
+        console.print(f"\n[accent]\\[{exchange}][/]")
+        block["address"] = prompt("address", block.get("address", ""))
+        block["chain"] = prompt("chain", block.get("chain", ""))
+        block["network"] = prompt("network", block.get("network", ""))
         data[exchange] = block
     write_json(path, data)
-    print(f"Da luu {path}")
+    print_success(f"Đã lưu {path}")
 
 
 def edit_discord_json():
+    print_section("Sửa config.json (Discord webhook)")
     cfg = read_config_txt()
     if cfg is None:
-        print("Chua co config.txt, tao truoc da (muc 1).")
+        print_error("Chưa có config.txt, tạo trước đã (mục 1).")
         return
     path = os.path.join(ini_dir(cfg["ini_folder"]), "config.json")
     data = read_json(path, dict(DEFAULT_DISCORD_JSON))
@@ -254,40 +285,56 @@ def edit_discord_json():
     webhook = prompt("Discord webhook URL", current)
     data["discord"] = {"webhook": webhook}
     write_json(path, data)
-    print(f"Da luu {path}")
+    print_success(f"Đã lưu {path}")
+
+    if webhook:
+        from Notification.Discord import send_to_discord
+        console.print()
+        print_info("Đang gửi tin nhắn test tới Discord webhook...")
+        sent = send_to_discord(requests.Session(), webhook, "[config_menu] fr_bot: webhook hoạt động bình thường.")
+        (print_success if sent else print_error)("Gửi thành công." if sent else "Gửi thất bại - kiểm tra lại webhook URL.")
 
 
 def edit_server_json():
+    print_section("Sửa server.json")
     data = read_json(SERVER_JSON, dict(DEFAULT_SERVER_JSON))
     services = data.get("microservices", [])
     for ms in services:
-        print(f"\n[{ms.get('name')}]")
-        ms["host"] = prompt("  host", ms.get("host", ""))
+        console.print(f"\n[accent]\\[{ms.get('name')}][/]")
+        ms["host"] = prompt("host", ms.get("host", ""))
     data["microservices"] = services
     write_json(SERVER_JSON, data)
-    print(f"Da luu {SERVER_JSON}")
+    print_success(f"Đã lưu {SERVER_JSON}")
 
 
 def edit_exchange_key():
-    print(f"Se sua {EXCHANGE_KEY_JSON} (local fallback, khong dung AWS).")
-    exchange = prompt_exchange("Exchange can sua", "bitget")
-    manage_keys.cmd_set(argparse.Namespace(exchange=exchange, local=True, restart=False))
+    print_section("Sửa exchange_key.json")
+    print_info(f"Sẽ sửa {EXCHANGE_KEY_JSON} (local fallback, không dùng AWS).")
+    exchange = prompt_exchange("Exchange cần sửa", "bitget")
+    manage_keys.cmd_set(argparse.Namespace(exchange=exchange, local=True, restart=False, skip_verify=False))
 
 
-MENU = """
-=== fr_bot Config Manager ===
-_settings dir: {settings_dir}
+MENU_ITEMS = [
+    ("1", "🧩", "Khởi tạo / tái tạo file config mẫu còn thiếu"),
+    ("2", "👁", "Xem toàn bộ config hiện tại"),
+    ("3", "🔀", "Sửa config.txt (exchange1 / exchange2 / ini folder)"),
+    ("4", "⚖️", "Sửa balance.json (max_diff_rate)"),
+    ("5", "💸", "Sửa transfer.json (địa chỉ nạp/rút mỗi sàn)"),
+    ("6", "💬", "Sửa config.json (Discord webhook)"),
+    ("7", "🖥️", "Sửa server.json (danh sách microservices)"),
+    ("8", "🔑", "Sửa exchange_key.json (API key, local fallback)"),
+    ("0", "🚪", "Thoát"),
+]
 
-1. Khoi tao / tai tao file config mau con thieu
-2. Xem toan bo config hien tai
-3. Sua config.txt (exchange1 / exchange2 / ini folder)
-4. Sua balance.json (max_diff_rate)
-5. Sua transfer.json (dia chi nap/rut moi san)
-6. Sua config.json (Discord webhook)
-7. Sua server.json (danh sach microservices)
-8. Sua exchange_key.json (API key, local fallback)
-0. Thoat
-"""
+
+def print_menu():
+    table = Table(box=box.SIMPLE, show_header=False, expand=True, pad_edge=False)
+    table.add_column(justify="center", style="bold #03DAC6", width=3)
+    table.add_column(width=3)
+    table.add_column(style="white")
+    for key, icon, label in MENU_ITEMS:
+        table.add_row(key, icon, label)
+    console.print(Panel(table, title="[bold #BB86FC]MENU[/]", title_align="left", border_style="primary", box=box.ROUNDED))
 
 
 def main():
@@ -307,18 +354,20 @@ def main():
     }
 
     while True:
-        print(MENU.format(settings_dir=SETTINGS_DIR))
-        choice = input("Chon: ").strip()
+        print_header("fr_bot CONFIG MANAGER", subtitle=SETTINGS_DIR)
+        print_menu()
+        choice = Prompt.ask("[accent]Chọn[/]", console=console).strip()
         if choice == "0":
+            print_info("Tạm biệt!")
             break
         action = actions.get(choice)
         if action is None:
-            print("Lua chon khong hop le.")
+            print_error("Lựa chọn không hợp lệ.")
             continue
         try:
             action()
         except Exception as e:
-            print(f"Loi: {e}")
+            print_error(f"Lỗi: {e}")
 
 
 if __name__ == "__main__":

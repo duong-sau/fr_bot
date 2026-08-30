@@ -4,7 +4,6 @@ class EXCHANGE(Enum):
     BINANCE = "BINANCE"
     BYBIT = "BYBIT"
     BITGET = "BITGET"
-    BITGET_SUB = "BITGET_SUB"
     OKX = "OKX"
     GATE = "GATE"
 
@@ -16,8 +15,6 @@ def convert_exchange_name_to_exchange(exchange_name):
         return EXCHANGE.BINANCE
     elif exchange_name == 'bitget':
         return EXCHANGE.BITGET
-    elif exchange_name == 'bitget_sub':
-        return EXCHANGE.BITGET_SUB
     elif exchange_name == 'gate':
         return EXCHANGE.GATE
     else:
@@ -31,8 +28,6 @@ def convert_exchange_to_name(exchange):
         return 'binance'
     elif exchange == EXCHANGE.BITGET:
         return 'bitget'
-    elif exchange == EXCHANGE.BITGET_SUB:
-        return 'bitget_sub'
     elif exchange == EXCHANGE.GATE:
         return 'gate'
     else:

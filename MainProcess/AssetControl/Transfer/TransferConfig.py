@@ -27,7 +27,7 @@ class TransferConfig:
         if exchange1 == EXCHANGE.BINANCE or exchange2 == EXCHANGE.BINANCE:
             binance_deposit_address = data.get('binance', {}).get('address', '')
             binance_deposit_chain = data.get('binance', {}).get('chain', '')
-            binance_deposit_network = data.get('bitget', {}).get('network', '')
+            binance_deposit_network = data.get('binance', {}).get('network', '')
 
             print(f"Binance Deposit Address: {binance_deposit_address}")
             print(f"Binance Deposit Chain: {binance_deposit_chain}")
@@ -39,7 +39,7 @@ class TransferConfig:
             }
 
 
-        if exchange1 == EXCHANGE.BITGET or exchange2 == EXCHANGE.BITGET or exchange1 == EXCHANGE.BITGET_SUB or exchange2 == EXCHANGE.BITGET_SUB:
+        if exchange1 == EXCHANGE.BITGET or exchange2 == EXCHANGE.BITGET:
             bitget_deposit_address = data.get('bitget', {}).get('address', '')
             bitget_deposit_chain = data.get('bitget', {}).get('chain', '')
             bitget_deposit_network = data.get('bitget', {}).get('network', '')

@@ -62,7 +62,6 @@ def get_credentials(exchange1: EXCHANGE, exchange2: EXCHANGE):
     {
       'binance': {'api_key': str, 'api_secret': str},
       'bitget': {'api_key': str, 'api_secret': str, 'password': str},
-      'bitget_sub': {'api_key': str, 'api_secret': str, 'password': str},
       'gate': {'api_key': str, 'api_secret': str}
     }
 
@@ -84,7 +83,6 @@ def get_credentials(exchange1: EXCHANGE, exchange2: EXCHANGE):
     creds = {
         'binance': {'api_key': '', 'api_secret': ''},
         'bitget': {'api_key': '', 'api_secret': '', 'password': ''},
-        'bitget_sub': {'api_key': '', 'api_secret': '', 'password': ''},
         'gate': {'api_key': '', 'api_secret': ''},
     }
 
@@ -97,17 +95,14 @@ def get_credentials(exchange1: EXCHANGE, exchange2: EXCHANGE):
             ex_enum = EXCHANGE.BINANCE
         elif name.upper() == 'BITGET':
             ex_enum = EXCHANGE.BITGET
-        elif name.upper() == 'BITGET_SUB':
-            ex_enum = EXCHANGE.BITGET_SUB
         elif name.upper() == 'GATE':
             ex_enum = EXCHANGE.GATE
         else:
             ex_enum = None
         if ex_enum is not None and (exchange1 == ex_enum or exchange2 == ex_enum):
-            check_config_empty_by_error([creds[name].get(k, '') for k in required_keys])
+            check_config_empty_by_error({k: creds[name].get(k, '') for k in required_keys})
 
     _fill_and_validate('bitget', ['api_key', 'api_secret', 'password'])
-    _fill_and_validate('bitget_sub', ['api_key', 'api_secret', 'password'])
     _fill_and_validate('binance', ['api_key', 'api_secret'])
     _fill_and_validate('gate', ['api_key', 'api_secret'])
 

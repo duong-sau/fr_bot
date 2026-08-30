@@ -43,11 +43,24 @@ IN_CONTAINER_LOGS_OLD = "/app/logs"
 IN_CONTAINER_SETTINGS_NEW = "/home/ubuntu/fr_bot/code/_settings"
 
 
-class ADLDockerController(MicroserviceController):
+class DockerController(MicroserviceController):
+    """Quản lý một container Docker (create/start/stop/ping) qua Docker CLI.
+
+    Dùng chung cho ADLControl, AssetControl và Discord relay — trước đây là 3 class
+    gần như giống hệt nhau, chỉ khác container_name/image_name (và Discord cần tự
+    build image nếu chưa có, xử lý qua `build_image`).
+    """
+
+    def __init__(self, host, name, container_name, image_name, build_image=None):
+        super().__init__(host, name)
+        self.container_name = container_name
+        self.image_name = image_name
+        self.build_image = build_image  # optional callable() -> {"error": ...} hoặc None nếu OK
+
     def ping(self):
         try:
             result = subprocess.run([
-                "docker", "inspect", "-f", "{{.State.Running}}", "adlcontrol_container"
+                "docker", "inspect", "-f", "{{.State.Running}}", self.container_name
             ], capture_output=True, text=True)
             running = result.stdout.strip() == "true"
             self.model.status = SERVICE_STATUS.RUNNING.value if running else SERVICE_STATUS.STOPPED.value
@@ -59,157 +72,43 @@ class ADLDockerController(MicroserviceController):
     def start(self):
         try:
             result = subprocess.run([
-                "docker", "inspect", "adlcontrol_container"
+                "docker", "inspect", self.container_name
             ], capture_output=True, text=True)
             need_create = False
             if result.returncode == 0:
                 mounts = subprocess.run([
-                    "docker", "inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "adlcontrol_container"
+                    "docker", "inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", self.container_name
                 ], capture_output=True, text=True)
                 destinations = mounts.stdout.strip().splitlines()
                 has_logs = (IN_CONTAINER_LOGS_OLD in destinations) or (IN_CONTAINER_LOGS_NEW in destinations)
                 has_settings = (IN_CONTAINER_SETTINGS_NEW in destinations)
                 if not (has_logs and has_settings):
-                    subprocess.run(["docker", "stop", "adlcontrol_container"], check=False)
-                    subprocess.run(["docker", "rm", "adlcontrol_container"], check=True)
+                    subprocess.run(["docker", "stop", self.container_name], check=False)
+                    subprocess.run(["docker", "rm", self.container_name], check=True)
                     need_create = True
             else:
                 need_create = True
 
             if need_create:
-                subprocess.run([
-                    "docker", "create",
-                    "--name", "adlcontrol_container",
-                    "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_NEW}",
-                    "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_OLD}",
-                    "-v", f"{HOST_SETTINGS}:{IN_CONTAINER_SETTINGS_NEW}",
-                    "adlprocess"
-                ], check=True)
-            subprocess.run(["docker", "start", "adlcontrol_container"], check=True)
-            self.model.status = SERVICE_STATUS.RUNNING.value
-            return {"success": True}
-        except Exception as e:
-            self.model.status = SERVICE_STATUS.STOPPED.value
-            return {"error": str(e)}
+                if self.build_image is not None:
+                    error = self.build_image()
+                    if error is not None:
+                        self.model.status = SERVICE_STATUS.STOPPED.value
+                        return error
 
-    def stop(self):
-        try:
-            subprocess.run(["docker", "stop", "adlcontrol_container"], check=True)
-            self.model.status = SERVICE_STATUS.STOPPED.value
-            return {"success": True}
-        except Exception as e:
-            return {"error": str(e)}
-
-
-class AssetDockerController(MicroserviceController):
-    def ping(self):
-        try:
-            result = subprocess.run([
-                "docker", "inspect", "-f", "{{.State.Running}}", "assetcontrol_container"
-            ], capture_output=True, text=True)
-            running = result.stdout.strip() == "true"
-            self.model.status = SERVICE_STATUS.RUNNING.value if running else SERVICE_STATUS.STOPPED.value
-            return {"running": running}
-        except Exception as e:
-            self.model.status = SERVICE_STATUS.STOPPED.value
-            return {"error": str(e)}
-
-    def start(self):
-        try:
-            result = subprocess.run([
-                "docker", "inspect", "assetcontrol_container"
-            ], capture_output=True, text=True)
-            need_create = False
-            if result.returncode == 0:
-                mounts = subprocess.run([
-                    "docker", "inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "assetcontrol_container"
-                ], capture_output=True, text=True)
-                destinations = mounts.stdout.strip().splitlines()
-                has_logs = (IN_CONTAINER_LOGS_OLD in destinations) or (IN_CONTAINER_LOGS_NEW in destinations)
-                has_settings = (IN_CONTAINER_SETTINGS_NEW in destinations)
-                if not (has_logs and has_settings):
-                    subprocess.run(["docker", "stop", "assetcontrol_container"], check=False)
-                    subprocess.run(["docker", "rm", "assetcontrol_container"], check=True)
-                    need_create = True
-            else:
-                need_create = True
-
-            if need_create:
-                subprocess.run([
-                    "docker", "create",
-                    "--name", "assetcontrol_container",
-                    "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_NEW}",
-                    "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_OLD}",
-                    "-v", f"{HOST_SETTINGS}:{IN_CONTAINER_SETTINGS_NEW}",
-                    "assetprocess"
-                ], check=True)
-            subprocess.run(["docker", "start", "assetcontrol_container"], check=True)
-            self.model.status = SERVICE_STATUS.RUNNING.value
-            return {"success": True}
-        except Exception as e:
-            self.model.status = SERVICE_STATUS.STOPPED.value
-            return {"error": str(e)}
-
-    def stop(self):
-        try:
-            subprocess.run(["docker", "stop", "assetcontrol_container"], check=True)
-            self.model.status = SERVICE_STATUS.STOPPED.value
-            return {"success": True}
-        except Exception as e:
-            return {"error": str(e)}
-
-
-class DiscordDockerController(MicroserviceController):
-    def ping(self):
-        try:
-            result = subprocess.run([
-                "docker", "inspect", "-f", "{{.State.Running}}", "discord_shared_container"
-            ], capture_output=True, text=True)
-            running = result.stdout.strip() == "true"
-            self.model.status = SERVICE_STATUS.RUNNING.value if running else SERVICE_STATUS.STOPPED.value
-            return {"running": running}
-        except Exception as e:
-            self.model.status = SERVICE_STATUS.STOPPED.value
-            return {"error": str(e)}
-
-    def start(self):
-        try:
-            result = subprocess.run([
-                "docker", "inspect", "discord_shared_container"
-            ], capture_output=True, text=True)
-            need_create = False
-            if result.returncode == 0:
-                mounts = subprocess.run([
-                    "docker", "inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "discord_shared_container"
-                ], capture_output=True, text=True)
-                destinations = mounts.stdout.strip().splitlines()
-                has_logs = (IN_CONTAINER_LOGS_OLD in destinations) or (IN_CONTAINER_LOGS_NEW in destinations)
-                has_settings = (IN_CONTAINER_SETTINGS_NEW in destinations)
-                if not (has_logs and has_settings):
-                    subprocess.run(["docker", "stop", "discord_shared_container"], check=False)
-                    subprocess.run(["docker", "rm", "discord_shared_container"], check=True)
-                    need_create = True
-            else:
-                need_create = True
-
-            if need_create:
-                img = subprocess.run(["docker", "images", "-q", "discord_shared_image"], capture_output=True, text=True)
-                if img.returncode != 0 or not img.stdout.strip():
-                    build = subprocess.run(["docker", "build", "-f", "Notification/Dockerfile", "-t", "discord_shared_image", "."], capture_output=True, text=True)
-                    if build.returncode != 0:
-                        return {"error": f"Failed to build discord image: {build.stderr}"}
                 create = subprocess.run([
                     "docker", "create",
-                    "--name", "discord_shared_container",
+                    "--name", self.container_name,
                     "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_NEW}",
                     "-v", f"{HOST_LOGS}:{IN_CONTAINER_LOGS_OLD}",
                     "-v", f"{HOST_SETTINGS}:{IN_CONTAINER_SETTINGS_NEW}",
-                    "discord_shared_image"
+                    self.image_name
                 ], capture_output=True, text=True)
                 if create.returncode != 0:
+                    self.model.status = SERVICE_STATUS.STOPPED.value
                     return {"error": f"Failed to create container: {create.stderr}"}
 
-            subprocess.run(["docker", "start", "discord_shared_container"], check=True)
+            subprocess.run(["docker", "start", self.container_name], check=True)
             self.model.status = SERVICE_STATUS.RUNNING.value
             return {"success": True}
         except Exception as e:
@@ -218,11 +117,23 @@ class DiscordDockerController(MicroserviceController):
 
     def stop(self):
         try:
-            subprocess.run(["docker", "stop", "discord_shared_container"], check=True)
+            subprocess.run(["docker", "stop", self.container_name], check=True)
             self.model.status = SERVICE_STATUS.STOPPED.value
             return {"success": True}
         except Exception as e:
             return {"error": str(e)}
+
+
+def _build_discord_image_if_missing():
+    img = subprocess.run(["docker", "images", "-q", "discord_shared_image"], capture_output=True, text=True)
+    if img.returncode != 0 or not img.stdout.strip():
+        build = subprocess.run(
+            ["docker", "build", "-f", "Notification/Dockerfile", "-t", "discord_shared_image", "."],
+            capture_output=True, text=True,
+        )
+        if build.returncode != 0:
+            return {"error": f"Failed to build discord image: {build.stderr}"}
+    return None
 
 
 class MicroserviceManager:
@@ -236,11 +147,21 @@ class MicroserviceManager:
         for ms in config.get("microservices", []):
             name = ms["name"].lower()
             if name == "adlcontrol":
-                self.microservices.append(ADLDockerController(host=ms["host"], name=ms["name"]))
+                self.microservices.append(DockerController(
+                    host=ms["host"], name=ms["name"],
+                    container_name="adlcontrol_container", image_name="adlprocess",
+                ))
             elif name == "assetcontrol":
-                self.microservices.append(AssetDockerController(host=ms["host"], name=ms["name"]))
+                self.microservices.append(DockerController(
+                    host=ms["host"], name=ms["name"],
+                    container_name="assetcontrol_container", image_name="assetprocess",
+                ))
             elif name == "discord":
-                self.microservices.append(DiscordDockerController(host=ms["host"], name=ms["name"]))
+                self.microservices.append(DockerController(
+                    host=ms["host"], name=ms["name"],
+                    container_name="discord_shared_container", image_name="discord_shared_image",
+                    build_image=_build_discord_image_if_missing,
+                ))
             else:
                 raise ValueError(f"Unknown microservice name: {name}")
 

@@ -103,7 +103,7 @@ def get_withdrawal_txid(exchange, order_id):
     """
     if exchange == EXCHANGE.BINANCE:
         withdrawals = binance.fetchWithdrawals(code='USDT', params={'limit': 10})
-    elif exchange == EXCHANGE.BITGET or exchange == EXCHANGE.BITGET_SUB:
+    elif exchange == EXCHANGE.BITGET:
         withdrawals = bitget.fetchWithdrawals(code='USDT', params={'limit': 10})
     elif exchange == EXCHANGE.GATE:
         withdrawals = gate.fetchWithdrawals(code='USDT', params={'limit': 10})
@@ -149,7 +149,7 @@ def wait_for_desposit(exchange, txid):
     try:
         if exchange == EXCHANGE.BINANCE:
             deposits = binance.fetchDeposits(code='USDT', limit=10, params={'network': transfer_config.binance_deposit_info['network']})
-        elif exchange == EXCHANGE.BITGET or exchange == EXCHANGE.BITGET_SUB:
+        elif exchange == EXCHANGE.BITGET:
             deposits = bitget.fetchDeposits(code='USDT', limit=10, params={'network': transfer_config.bitget_deposit_info['network']})
         elif exchange == EXCHANGE.GATE:
             deposits = gate.fetchDeposits(code='USDT', limit=10, params={'network': transfer_config.gate_deposit_info['network']})
@@ -252,10 +252,8 @@ if __name__ == '__main__':
         from_exchange = EXCHANGE.BITGET
     elif f_exchange == 'gate':
         from_exchange = EXCHANGE.GATE
-    elif f_exchange == 'bitget_sub':
-        from_exchange = EXCHANGE.BITGET_SUB
     else:
-        raise ValueError("Unsupported exchange. Use 'binance' or 'bitget'.")
+        raise ValueError("Unsupported exchange. Use 'binance', 'bitget' or 'gate'.")
 
     t_exchange = sys.argv[2]
     if t_exchange == 'binance':
@@ -264,10 +262,8 @@ if __name__ == '__main__':
         to_exchange = EXCHANGE.BITGET
     elif t_exchange == 'gate':
         to_exchange = EXCHANGE.GATE
-    elif t_exchange == 'bitget_sub':
-        to_exchange = EXCHANGE.BITGET_SUB
     else:
-        raise ValueError("Unsupported exchange. Use 'binance' or 'bitget'.")
+        raise ValueError("Unsupported exchange. Use 'binance', 'bitget' or 'gate'.")
     transfer_config = TransferConfig(from_exchange=from_exchange, to_exchange=to_exchange)
     amount = float(sys.argv[3])
     transfer_tunel(from_exchange, to_exchange, amount)

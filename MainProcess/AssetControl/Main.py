@@ -10,7 +10,8 @@ import Config
 from fr_ccxt import CCXTWrapper
 from Core.Tool import step, clear_console
 from Core.Define import convert_exchange_to_name
-from Define import transfer_done_file, SERVICE_NAME, root_path, transfer_status_json_file, exchange1, exchange2
+from Core.FakeExchange import FakeExchange
+from Define import transfer_done_file, SERVICE_NAME, root_path, transfer_status_json_file, exchange1, exchange2, DRY_RUN
 from Core.Logger import log_info, LogService
 from MainProcess.AssetControl.BalanceConfig import max_diff_rate
 
@@ -25,9 +26,9 @@ def asset_control_log(message):
 class AssetProcess:
     MIN_ASSET_DIFF = max_diff_rate
 
-    def __init__(self, bitget_tracker, gate_tracker):
-        self.bitget_tracker = bitget_tracker
-        self.gate_tracker = gate_tracker
+    def __init__(self, exchange1_tracker, exchange2_tracker):
+        self.exchange1_tracker = exchange1_tracker
+        self.exchange2_tracker = exchange2_tracker
         self.in_transfer = False  # Biến để kiểm tra xem có đang trong quá trình chuyển tiền hay không
         self.asset = {}
         self.process = None  # Biến để lưu trữ tiến trình chuyển tiền
@@ -37,6 +38,11 @@ class AssetProcess:
     def transfer(self, from_exchange, to_exchange, amount):
         if self.in_transfer:
             raise Exception("Transfer is already in progress, please wait until it completes.")
+
+        if DRY_RUN:
+            asset_control_log(f"[DRY_RUN] Would transfer {amount} USDT from {from_exchange} to {to_exchange} (no real transfer executed).")
+            return
+
         self.in_transfer = True  # Đánh dấu là đang trong quá trình chuyển tiền
 
         # Ghi file transfer_done_file trạng thái WAIT + amount để API đọc được số tiền đang chuyển
@@ -91,29 +97,29 @@ class AssetProcess:
 
 
     def tick(self):
-        bitget_resp = self.bitget_tracker.get_future_account_balance()
-        gate_resp = self.gate_tracker.get_future_account_balance()
+        exchange1_resp = self.exchange1_tracker.get_future_account_balance()
+        exchange2_resp = self.exchange2_tracker.get_future_account_balance()
 
-        bitget_total = float(bitget_resp["balances"].get("USDT", {}).get("total", 0.0))
-        gate_total = float(gate_resp["balances"].get("USDT", {}).get("total", 0.0))
+        exchange1_total = float(exchange1_resp["balances"].get("USDT", {}).get("total", 0.0))
+        exchange2_total = float(exchange2_resp["balances"].get("USDT", {}).get("total", 0.0))
 
-        total = bitget_total + gate_total
+        total = exchange1_total + exchange2_total
         min_balance = total / 2 - total * self.MIN_ASSET_DIFF
         self.asset = {
-            convert_exchange_to_name(exchange1): bitget_total,
-            convert_exchange_to_name(exchange2): gate_total,
+            convert_exchange_to_name(exchange1): exchange1_total,
+            convert_exchange_to_name(exchange2): exchange2_total,
             'estimated_min_balance': min_balance,
         }
 
         if not self.in_transfer:
             # Nếu chênh lệch giữa 2 sàn quá 20% tổng asset thì chuyển lượng chênh lệch (làm tròn đến 10 USDT) từ sàn ít hơn sang sàn nhiều hơn
-            total_asset = bitget_total + gate_total
-            diff = abs(bitget_total - gate_total)
+            total_asset = exchange1_total + exchange2_total
+            diff = abs(exchange1_total - exchange2_total)
             if total_asset > 0 and diff / total_asset > self.MIN_ASSET_DIFF:
                 move_amount = int(diff/2 // 10) * 10  # Làm tròn xuống đến 10 USDT
                 if move_amount == 0:
                     raise ValueError("The difference is too small to transfer, please check your balances.")
-                if bitget_total > gate_total:
+                if exchange1_total > exchange2_total:
 
                     self.transfer(convert_exchange_to_name(exchange1), convert_exchange_to_name(exchange2), move_amount)
                 else:
@@ -132,28 +138,40 @@ class AssetProcess:
 if __name__ == '__main__':
 
     clear_console()
-    asset_control_log("Starting asset balance process...")
+    exchange1_name = convert_exchange_to_name(exchange1)
+    exchange2_name = convert_exchange_to_name(exchange2)
 
-    creds = Config.get_credentials(exchange1, exchange2)
-    bitget_info = creds['bitget']
-    gate_info = creds['gate']
+    if DRY_RUN:
+        asset_control_log(
+            f"[DRY_RUN] Starting asset balance process WITHOUT real API credentials "
+            f"({exchange1_name}/{exchange2_name} are simulated)."
+        )
+        exchange1_wrapper = CCXTWrapper(FakeExchange(exchange1_name))
+        exchange2_wrapper = CCXTWrapper(FakeExchange(exchange2_name))
+    else:
+        asset_control_log("Starting asset balance process...")
 
-    bitget_wrapper = CCXTWrapper(
-        'bitget',
-        apiKey=bitget_info['api_key'],
-        secret=bitget_info['api_secret'],
-        password=bitget_info['password'],
-        options={'defaultType': 'swap'}
-    )
+        creds = Config.get_credentials(exchange1, exchange2)
+        exchange1_info = creds[exchange1_name]
+        exchange2_info = creds[exchange2_name]
 
-    gate_wrapper = CCXTWrapper(
-        'gate',
-        apiKey=gate_info['api_key'],
-        secret=gate_info['api_secret'],
-        options={'defaultType': 'swap'}
-    )
+        exchange1_wrapper = CCXTWrapper(
+            exchange1_name,
+            apiKey=exchange1_info['api_key'],
+            secret=exchange1_info['api_secret'],
+            password=exchange1_info.get('password'),
+            options={'defaultType': 'swap'}
+        )
 
-    asset_process = AssetProcess(bitget_wrapper, gate_wrapper)
+        exchange2_wrapper = CCXTWrapper(
+            exchange2_name,
+            apiKey=exchange2_info['api_key'],
+            secret=exchange2_info['api_secret'],
+            password=exchange2_info.get('password'),
+            options={'defaultType': 'swap'}
+        )
+
+    asset_process = AssetProcess(exchange1_wrapper, exchange2_wrapper)
 
     try:
 
@@ -169,8 +187,8 @@ if __name__ == '__main__':
             status = asset_process.get_status()
 
 
-            step_string1 = f"Bitget: {asset['bitget']} USDT"
-            step_string2 = f"Gate: {asset['gate']} USDT"
+            step_string1 = f"{exchange1_name.capitalize()}: {asset[exchange1_name]} USDT"
+            step_string2 = f"{exchange2_name.capitalize()}: {asset[exchange2_name]} USDT"
             step_string3 = f"Estimated Min Balance: {asset['estimated_min_balance']} USDT"
             step_strings = [step_string1, step_string2, step_string3]
             if status :
