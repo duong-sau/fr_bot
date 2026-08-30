@@ -74,7 +74,9 @@ class CCXTWrapper:
         # include any other kwargs (like proxy, uid...)
         init_kwargs.update(kwargs)
 
-        self._ex = ex_cls(**{k: v for k, v in init_kwargs.items() if v is not None})
+        # ccxt exchange constructors take a single config dict (e.g. ccxt.gateio({...})),
+        # not keyword arguments — unpacking as **kwargs raises "unexpected keyword argument".
+        self._ex = ex_cls({k: v for k, v in init_kwargs.items() if v is not None})
 
     def _parse_common_ccxt_balance(self, balance: dict) -> Dict[str, Dict[str, float]]:
         """Parse balance returned by ccxt.fetch_balance() which commonly has 'total' and 'free' dicts."""

@@ -10,7 +10,8 @@ import Config
 from fr_ccxt import CCXTWrapper
 from Core.Tool import step, clear_console
 from Core.Define import convert_exchange_to_name
-from Define import transfer_done_file, SERVICE_NAME, root_path, transfer_status_json_file, exchange1, exchange2
+from Core.FakeExchange import FakeExchange
+from Define import transfer_done_file, SERVICE_NAME, root_path, transfer_status_json_file, exchange1, exchange2, DRY_RUN
 from Core.Logger import log_info, LogService
 from MainProcess.AssetControl.BalanceConfig import max_diff_rate
 
@@ -37,6 +38,11 @@ class AssetProcess:
     def transfer(self, from_exchange, to_exchange, amount):
         if self.in_transfer:
             raise Exception("Transfer is already in progress, please wait until it completes.")
+
+        if DRY_RUN:
+            asset_control_log(f"[DRY_RUN] Would transfer {amount} USDT from {from_exchange} to {to_exchange} (no real transfer executed).")
+            return
+
         self.in_transfer = True  # Đánh dấu là đang trong quá trình chuyển tiền
 
         # Ghi file transfer_done_file trạng thái WAIT + amount để API đọc được số tiền đang chuyển
@@ -132,29 +138,38 @@ class AssetProcess:
 if __name__ == '__main__':
 
     clear_console()
-    asset_control_log("Starting asset balance process...")
-
-    creds = Config.get_credentials(exchange1, exchange2)
     exchange1_name = convert_exchange_to_name(exchange1)
     exchange2_name = convert_exchange_to_name(exchange2)
-    exchange1_info = creds[exchange1_name]
-    exchange2_info = creds[exchange2_name]
 
-    exchange1_wrapper = CCXTWrapper(
-        exchange1_name,
-        apiKey=exchange1_info['api_key'],
-        secret=exchange1_info['api_secret'],
-        password=exchange1_info.get('password'),
-        options={'defaultType': 'swap'}
-    )
+    if DRY_RUN:
+        asset_control_log(
+            f"[DRY_RUN] Starting asset balance process WITHOUT real API credentials "
+            f"({exchange1_name}/{exchange2_name} are simulated)."
+        )
+        exchange1_wrapper = CCXTWrapper(FakeExchange(exchange1_name))
+        exchange2_wrapper = CCXTWrapper(FakeExchange(exchange2_name))
+    else:
+        asset_control_log("Starting asset balance process...")
 
-    exchange2_wrapper = CCXTWrapper(
-        exchange2_name,
-        apiKey=exchange2_info['api_key'],
-        secret=exchange2_info['api_secret'],
-        password=exchange2_info.get('password'),
-        options={'defaultType': 'swap'}
-    )
+        creds = Config.get_credentials(exchange1, exchange2)
+        exchange1_info = creds[exchange1_name]
+        exchange2_info = creds[exchange2_name]
+
+        exchange1_wrapper = CCXTWrapper(
+            exchange1_name,
+            apiKey=exchange1_info['api_key'],
+            secret=exchange1_info['api_secret'],
+            password=exchange1_info.get('password'),
+            options={'defaultType': 'swap'}
+        )
+
+        exchange2_wrapper = CCXTWrapper(
+            exchange2_name,
+            apiKey=exchange2_info['api_key'],
+            secret=exchange2_info['api_secret'],
+            password=exchange2_info.get('password'),
+            options={'defaultType': 'swap'}
+        )
 
     asset_process = AssetProcess(exchange1_wrapper, exchange2_wrapper)
 

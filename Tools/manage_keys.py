@@ -23,7 +23,12 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import boto3
-from getpass import getpass
+from rich import box
+from rich.prompt import Prompt
+from rich.table import Table
+
+from Core.Verify import verify_exchange_credentials
+from cli_style import console, print_error, print_header, print_info, print_success, print_warning
 
 SECRET_NAME = "exchange_key"
 REGION = "ap-southeast-1"
@@ -81,54 +86,68 @@ def mask(value):
 def cmd_list(args):
     if args.local:
         data = fetch_local()
-        print(f"(reading from local file: {LOCAL_KEY_FILE})")
+        print_header("EXCHANGE KEYS", subtitle=f"local: {LOCAL_KEY_FILE}")
     else:
         client = get_client()
         data = fetch_secret(client)
+        print_header("EXCHANGE KEYS", subtitle=f"AWS Secrets Manager: {SECRET_NAME} ({REGION})")
+
+    table = Table(box=box.ROUNDED, border_style="primary", show_lines=False)
+    table.add_column("Exchange", style="bold #03DAC6")
+    table.add_column("Field", style="white")
+    table.add_column("Value", style="#9E9E9E")
     for exchange, fields in EXCHANGE_FIELDS.items():
         block = data.get(exchange, {})
-        print(f"[{exchange}]")
-        for field in fields:
-            print(f"  {field}: {mask(block.get(field, ''))}")
+        for i, field in enumerate(fields):
+            table.add_row(exchange if i == 0 else "", field, mask(block.get(field, "")))
+    console.print(table)
 
 
 def cmd_set(args):
     exchange = args.exchange
     if exchange not in EXCHANGE_FIELDS:
-        print(f"Unknown exchange '{exchange}'. Must be one of: {', '.join(EXCHANGE_FIELDS)}", file=sys.stderr)
+        print_error(f"Unknown exchange '{exchange}'. Must be one of: {', '.join(EXCHANGE_FIELDS)}")
         sys.exit(1)
 
     client = None if args.local else get_client()
     data = fetch_local() if args.local else fetch_secret(client)
     block = data.get(exchange, {})
 
-    print(f"Setting credentials for '{exchange}'. Leave blank to keep the current value.")
+    print_header(f"SET · {exchange.upper()}", subtitle="local file" if args.local else f"AWS Secrets Manager ({REGION})")
+    print_info("Bỏ trống (Enter) để giữ nguyên giá trị cũ.")
     for field in EXCHANGE_FIELDS[exchange]:
         current = block.get(field, "")
-        prompt = f"  {field} [{mask(current)}]: "
-        entered = getpass(prompt)
+        entered = Prompt.ask(f"  [white]{field}[/] [muted]\\[{mask(current)}][/]", password=True, console=console, default="", show_default=False)
         if entered:
             block[field] = entered
     data[exchange] = block
 
     if args.local:
         put_local(data)
-        print(f"Updated '{exchange}' in local file '{LOCAL_KEY_FILE}'.")
+        print_success(f"Updated '{exchange}' in local file '{LOCAL_KEY_FILE}'.")
     else:
         put_secret(client, data)
-        print(f"Updated '{exchange}' in secret '{SECRET_NAME}' ({REGION}).")
-    print(
+        print_success(f"Updated '{exchange}' in secret '{SECRET_NAME}' ({REGION}).")
+    print_warning(
         "Credentials are only read once at process startup — restart the affected "
         f"container(s) ({', '.join(RESTART_CONTAINERS)}) to pick up the new key."
     )
+
+    if not args.skip_verify:
+        console.print()
+        print_info(f"Verifying '{exchange}' credentials with a read-only balance check...")
+        passed, message = verify_exchange_credentials(
+            exchange, block.get('api_key', ''), block.get('api_secret', ''), block.get('password')
+        )
+        (print_success if passed else print_error)(f"[{exchange}] {message}")
 
     if args.restart:
         for container in RESTART_CONTAINERS:
             result = subprocess.run(["docker", "restart", container], capture_output=True, text=True)
             if result.returncode == 0:
-                print(f"Restarted {container}.")
+                print_success(f"Restarted {container}.")
             else:
-                print(f"Failed to restart {container}: {result.stderr.strip()}", file=sys.stderr)
+                print_error(f"Failed to restart {container}: {result.stderr.strip()}")
 
 
 def main():
@@ -150,6 +169,10 @@ def main():
     set_parser.add_argument(
         "--restart", action="store_true",
         help="Restart adlcontrol_container/assetcontrol_container after updating the secret.",
+    )
+    set_parser.add_argument(
+        "--skip-verify", action="store_true",
+        help="Skip the read-only fetch_balance check against the exchange after saving.",
     )
 
     args = parser.parse_args()
