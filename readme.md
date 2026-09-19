@@ -39,6 +39,11 @@ Thành phần chính:
   `Notification/Dockerfile`)
   - Tail file `logs/discord_simple.log` (hoặc file chỉ định qua `LOG_FILE`) mỗi `LOG_INTERVAL` giây (mặc định
     5s) và forward nội dung mới lên Discord qua webhook.
+- **Funding Scanner** (`Core/FundingScanner.py`): chạy ngay trong tiến trình Server (không phải container
+  riêng), quét funding rate **công khai** (ccxt `fetch_funding_rates()`, không cần API key) trên nhiều sàn
+  theo kiểu vòng tròn (quét lần lượt từng sàn rồi lặp lại ngay) để phát hiện chênh lệch funding mới nhanh
+  nhất có thể. Với mỗi symbol xuất hiện trên ≥ 2 sàn, tính chênh lệch (spread) giữa funding rate cao nhất và
+  thấp nhất — xếp hạng để tìm "cặp funding ngon" hiển thị lên giao diện qua `GET /bot1api/funding/pairs`.
 - **Core/**: tiện ích dùng chung (`Define.py`, `Tool.py`, `Logger.py`).
 - **fr_ccxt/**: wrapper mỏng quanh `ccxt` (`CCXTWrapper`), chuẩn hoá balance futures về một shape chung.
 
@@ -173,6 +178,11 @@ Prefix: `/bot1api`:
 - `PUT /bot1api/microservices/{id}/start` – Start microservice theo id (tự tạo container nếu chưa có, tự vá
   lại mount nếu thiếu)
 - `PUT /bot1api/microservices/{id}/stop` – Stop microservice theo id
+- `GET /bot1api/funding/pairs?limit=20&min_spread_pct=0` – danh sách "cặp funding ngon" (symbol + sàn funding
+  cao/thấp + spread), xếp theo `spread_pct` giảm dần. Dữ liệu công khai, không cần API key, cập nhật liên tục
+  bởi Funding Scanner chạy nền trong Server (xem mục "Tổng quan kiến trúc").
+- `GET /bot1api/funding/status` – trạng thái scanner: đang chạy hay không, số vòng quét đã chạy, lần quét gần
+  nhất/lỗi gần nhất theo từng sàn, số symbol đang theo dõi mỗi sàn.
 - `GET /health` – health check đơn giản, trả `{"status": "healthy"}`
 
 Server hiện **không** có API vị thế (`/positions`, `/positions/open`, `/positions/estimate`) — các phiên bản

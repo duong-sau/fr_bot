@@ -32,6 +32,7 @@ class LogService(Enum):
     ASSET = "asset"
     TUNEL = "tunel"
     TP_SL = "tp_sl"
+    FUNDING = "funding"
 
 class LogTarget(Enum):
     SHARED = "shared"
