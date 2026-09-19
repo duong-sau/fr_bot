@@ -20,6 +20,11 @@ normally run as its own Docker container:
   since most exchanges don't support direct futures-to-futures transfers between different platforms. Retries
   each step with `Core.Tool.try_this` and writes the outcome for the caller to pick up.
 - **Notification/Discord.py** — optional log relay that reads shared logs and posts to a Discord webhook.
+- **Funding Scanner** (`Core/FundingScanner.py`) — runs as a background thread inside the Server process
+  itself (started from `Server/AppCore.py`, not a separate Docker container). Continuously round-robins
+  through public, unauthenticated `ccxt` `fetch_funding_rates()` calls (default exchanges: binance, bitget,
+  gate) — no API key needed — to find symbols with a large funding-rate spread across exchanges ("cặp funding
+  ngon"). Exposed via `GET /bot1api/funding/pairs` and `GET /bot1api/funding/status` for the frontend to poll.
 
 ## Cross-process communication
 
@@ -44,6 +49,10 @@ Everything runtime-configurable lives outside the repo under `_settings/` (path 
 - `<ini>/tp_sl.json`, `config.json` (Discord webhook) — as referenced by `Define.py`.
 - `server.json` — list of `{name, host}` microservices the Server exposes/controls. `name` must be one of
   `adlcontrol` / `assetcontrol` / `discord` (case-insensitive) — see `MicroserviceManager.init_microservice`.
+- `funding_scanner.json` (optional, top-level, not per-`<ini>`) — `{"exchanges": [...], "quote": "USDT",
+  "inter_exchange_delay_sec": 1.5}` to override `Core.FundingScanner` defaults. Missing file/keys fall back to
+  hardcoded defaults (`binance`/`bitget`/`gate`, `USDT`, `1.5`s) — unlike everything else under `_settings/`,
+  this file is never required for the Server to start.
 
 `Define.py` picks `root_path` based on OS: `C:\job\dim\fr_bot\` on Windows, `/home/ubuntu/fr_bot` elsewhere —
 **this is not the git checkout directory**, it's a fixed deployment path. All `_settings` and log paths are
@@ -99,7 +108,7 @@ python -m venv .venv
 # Run the FastAPI server locally (serves on 127.0.0.1:8000 via uvicorn)
 python Server\App.py
 
-# Run the test suite (unittest-based; only fr_ccxt has tests today)
+# Run the test suite (unittest-based; covers fr_ccxt and Core.FundingScanner today)
 python -m unittest discover -s tests
 python -m unittest tests.test_fr_ccxt_wrapper -v   # single file
 ```

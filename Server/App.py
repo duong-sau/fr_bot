@@ -5,7 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Dict, List, Optional
 from fastapi.middleware.cors import CORSMiddleware
 
 from Server.AppCore import AppCore
@@ -42,6 +42,41 @@ def update_microservice_status(id: str):
     if app_core.stop_microservice(id):
         return {"message": f"{id} stopped"}
     raise HTTPException(status_code=404, detail="Microservice not found")
+
+
+class FundingPair(BaseModel):
+    symbol: str
+    high_exchange: str
+    high_rate: float
+    high_rate_pct: float
+    low_exchange: str
+    low_rate: float
+    low_rate_pct: float
+    spread: float
+    spread_pct: float
+    mark_price: Optional[float] = None
+    updated_at: Optional[str] = None
+
+
+class FundingScannerStatus(BaseModel):
+    running: bool
+    exchanges: List[str]
+    cycle_count: int
+    last_scan: Dict[str, Optional[str]]
+    symbol_count: Dict[str, int]
+    errors: Dict[str, Optional[str]]
+
+
+@app.get("/bot1api/funding/pairs", response_model=List[FundingPair])
+def get_funding_pairs(limit: int = 20, min_spread_pct: float = 0.0):
+    """Danh sách cặp funding ngon nhất, xếp theo chênh lệch funding rate (spread) giảm dần.
+    Dữ liệu công khai, quét vòng tròn liên tục — không cần API key."""
+    return app_core.get_funding_pairs(limit=limit, min_spread_pct=min_spread_pct)
+
+
+@app.get("/bot1api/funding/status", response_model=FundingScannerStatus)
+def get_funding_status():
+    return app_core.get_funding_status()
 
 
 @app.get("/health")
