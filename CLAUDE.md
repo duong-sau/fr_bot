@@ -137,7 +137,10 @@ ensures the container has the correct `frbot_logs` volume mounts and recreates i
 `Server/ServiceManager/MicroserviceManager.py`).
 
 `install.sh` and `rebuild_docker.sh` are Ubuntu-only deployment scripts (systemd unit + Docker images) for a
-real host at `/home/ubuntu/fr_bot`; they're not used for local development.
+real host at `/home/ubuntu/fr_bot`; they're not used for local development. `install.sh` also installs and
+starts the `web-ui/` React GUI alongside the server, but only when it detects the host is WSL (`is_wsl()`) —
+on a non-WSL Ubuntu host the GUI is left disabled. It uses the same systemd-vs-nohup mechanism as the server
+(`Tools/wsl_gui_ctl.sh` mirrors `Tools/wsl_server_ctl.sh`).
 
 ## Editing conventions specific to this repo
 
