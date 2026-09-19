@@ -6,6 +6,9 @@ set -euo pipefail
 #   or via Tools/wsl_server_ctl.sh's restart-on-crash loop when systemd isn't PID 1
 #   (e.g. WSL without `systemd=true` in /etc/wsl.conf) -- auto-detected, see has_systemd().
 # - HTTP only, bound to 127.0.0.1 (front it with a reverse proxy for external/HTTPS access)
+# - Web GUI (web-ui/, a React dev server on :3000): only installed/started when the host is
+#   detected as WSL (see is_wsl()); left disabled on a non-WSL Ubuntu host. Uses the same
+#   systemd-vs-nohup mechanism as the server (Tools/wsl_gui_ctl.sh mirrors wsl_server_ctl.sh).
 
 # ---------------- Config ----------------
 APP_ROOT="${APP_ROOT:-/home/ubuntu/fr_bot}"
@@ -17,6 +20,14 @@ HOST_SETTINGS_DIR="$CODE_DIR/_settings"
 APP_MODULE="${APP_MODULE:-Server.App:app}"
 APP_PORT="${APP_PORT:-8000}"
 SYSTEMD_UNIT="${SYSTEMD_UNIT:-frbot-server.service}"
+
+# Web GUI (web-ui/, a React dev server). Only installed/started when the
+# host is detected as WSL (see is_wsl()) -- on a non-WSL Ubuntu host it's
+# left disabled, matching how this repo actually gets used (GUI shares the
+# WSL dev machine with the server; a bare Linux host just runs the server).
+GUI_DIR="${GUI_DIR:-$CODE_DIR/web-ui}"
+GUI_PORT="${GUI_PORT:-3000}"
+GUI_SYSTEMD_UNIT="${GUI_SYSTEMD_UNIT:-frbot-gui.service}"
 
 
 # Microservices (optional; skip by default to keep this script focused on the server)
@@ -79,6 +90,14 @@ install_python() {
     # ensure venv and pip exist
     sudo apt-get update -y
     sudo apt-get install -y python3-venv python3-pip build-essential
+  fi
+}
+
+install_node() {
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "[INFO] Installing Node.js/npm (for the web GUI)..."
+    sudo apt-get update -y
+    sudo apt-get install -y nodejs npm
   fi
 }
 
@@ -150,6 +169,17 @@ setup_venv_and_deps() {
   deactivate || true
 }
 
+setup_gui_deps() {
+  install_node
+  if [[ -d "$GUI_DIR" ]]; then
+    echo "[INFO] Installing web GUI dependencies in $GUI_DIR..."
+    npm install --prefix "$GUI_DIR"
+  else
+    echo "[WARN] GUI dir '$GUI_DIR' not found; skipping GUI dependency install."
+    return 1
+  fi
+}
+
 install_systemd_server() {
   echo "[INFO] Installing systemd unit: $SYSTEMD_UNIT"
   UNIT_PATH="/etc/systemd/system/$SYSTEMD_UNIT"
@@ -187,16 +217,65 @@ EOF
   sudo systemctl --no-pager --full status "$SYSTEMD_UNIT" || true
 }
 
-configure_wsl_boot_command() {
-  local boot_cmd="su - $USER -c '$CODE_DIR/Tools/wsl_server_ctl.sh start'"
+install_systemd_gui() {
+  echo "[INFO] Installing systemd unit: $GUI_SYSTEMD_UNIT"
+  UNIT_PATH="/etc/systemd/system/$GUI_SYSTEMD_UNIT"
+  NPM_BIN="$(command -v npm)"
 
-  if [[ -f /etc/wsl.conf ]] && grep -q "wsl_server_ctl.sh" /etc/wsl.conf; then
-    echo "[INFO] /etc/wsl.conf already wires up wsl_server_ctl.sh; leaving it as-is."
+  sudo bash -c "cat > '$UNIT_PATH'" <<EOF
+[Unit]
+Description=FR Bot Web GUI (React dev server)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+Group=$USER
+WorkingDirectory=$GUI_DIR
+Environment=PORT=$GUI_PORT
+Environment=BROWSER=none
+Environment=CI=true
+ExecStart=$NPM_BIN start
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable "$GUI_SYSTEMD_UNIT"
+  sudo systemctl restart "$GUI_SYSTEMD_UNIT"
+  sleep 2
+  sudo systemctl --no-pager --full status "$GUI_SYSTEMD_UNIT" || true
+}
+
+# $@: absolute paths (no "start" suffix) of the wsl_*_ctl.sh scripts that
+# need to survive a WSL restart. Chains them into a single /etc/wsl.conf
+# [boot] command since wsl.conf only supports one.
+configure_wsl_boot_command() {
+  local scripts=("$@")
+  local inner=""
+  local script
+  for script in "${scripts[@]}"; do
+    if [[ -n "$inner" ]]; then
+      inner+=" && "
+    fi
+    inner+="$script start"
+  done
+  local boot_cmd="su - $USER -c '$inner'"
+
+  if [[ -f /etc/wsl.conf ]] && grep -qE "wsl_(server|gui)_ctl\.sh" /etc/wsl.conf; then
+    echo "[INFO] /etc/wsl.conf already wires up wsl_*_ctl.sh; leaving it as-is."
   elif [[ -f /etc/wsl.conf ]] && grep -q '^\[boot\]' /etc/wsl.conf; then
     echo "[WARN] /etc/wsl.conf already has a [boot] section; add this line to it manually:"
     echo "         command = \"$boot_cmd\""
   else
-    echo "[INFO] Adding [boot] command to /etc/wsl.conf so the server restarts when WSL boots..."
+    echo "[INFO] Adding [boot] command to /etc/wsl.conf so processes restart when WSL boots..."
     sudo bash -c "cat >> /etc/wsl.conf" <<EOF
 
 [boot]
@@ -217,13 +296,18 @@ install_nohup_server() {
     APP_MODULE="$APP_MODULE" APP_PORT="$APP_PORT" \
     "$CODE_DIR/Tools/wsl_server_ctl.sh" restart
 
-  if is_wsl; then
-    configure_wsl_boot_command
-  else
+  if ! is_wsl; then
     echo "[WARN] No systemd and not detected as WSL -- the server is running now but won't"
     echo "       restart on reboot. Wire '$CODE_DIR/Tools/wsl_server_ctl.sh start' into your"
     echo "       init system (cron @reboot, rc.local, etc.) to persist it."
   fi
+}
+
+install_nohup_gui() {
+  echo "[INFO] No systemd detected -- running the GUI via Tools/wsl_gui_ctl.sh (nohup + restart-on-crash loop) instead."
+  chmod +x "$CODE_DIR/Tools/wsl_gui_ctl.sh"
+  APP_ROOT="$APP_ROOT" CODE_DIR="$CODE_DIR" GUI_DIR="$GUI_DIR" LOG_DIR="$LOG_DIR" GUI_PORT="$GUI_PORT" \
+    "$CODE_DIR/Tools/wsl_gui_ctl.sh" restart
 }
 
 build_images_microservices() {
@@ -279,10 +363,37 @@ main() {
     echo "[WARN] exchange_key.json was created empty. Set real API keys before starting ADL/Asset control: '$CODE_DIR/config_menu.sh' or 'python Tools/manage_keys.py set <exchange> --local'."
   fi
 
+  local gui_enabled=0
+  if is_wsl; then
+    echo "[INFO] WSL detected -- installing/starting the web GUI (web-ui/) alongside the server..."
+    if setup_gui_deps; then
+      gui_enabled=1
+    fi
+  else
+    echo "[INFO] Not running under WSL -- leaving the web GUI (web-ui/) disabled."
+  fi
+
   if has_systemd; then
     install_systemd_server
+    if [[ "$gui_enabled" -eq 1 ]]; then
+      install_systemd_gui
+    fi
   else
     install_nohup_server
+    if [[ "$gui_enabled" -eq 1 ]]; then
+      install_nohup_gui
+    fi
+    if is_wsl; then
+      if [[ "$gui_enabled" -eq 1 ]]; then
+        configure_wsl_boot_command "$CODE_DIR/Tools/wsl_server_ctl.sh" "$CODE_DIR/Tools/wsl_gui_ctl.sh"
+      else
+        configure_wsl_boot_command "$CODE_DIR/Tools/wsl_server_ctl.sh"
+      fi
+    else
+      echo "[WARN] No systemd and not detected as WSL -- the server is running now but won't"
+      echo "       restart on reboot. Wire '$CODE_DIR/Tools/wsl_server_ctl.sh start' into your"
+      echo "       init system (cron @reboot, rc.local, etc.) to persist it."
+    fi
   fi
 
   if [[ "$SKIP_MICROSERVICES" -eq 0 ]]; then
@@ -294,6 +405,9 @@ main() {
 
   post_checks
   echo "[DONE] Server: http://127.0.0.1:$APP_PORT (loopback only)  Code: '$CODE_DIR'  Logs Volume: '$LOGS_VOLUME'  Data: '$DATA_DIR'"
+  if [[ "$gui_enabled" -eq 1 ]]; then
+    echo "[DONE] GUI: http://127.0.0.1:$GUI_PORT (WSL detected)"
+  fi
 }
 
 main "$@"
