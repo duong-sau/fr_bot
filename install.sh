@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# FR Bot install script (systemd FastAPI server)
-# - Server: uvicorn via systemd (APP_MODULE=Server.App:app)
+# FR Bot install script (FastAPI server)
+# - Server: uvicorn via systemd (APP_MODULE=Server.App:app) on a real systemd host,
+#   or via Tools/wsl_server_ctl.sh's restart-on-crash loop when systemd isn't PID 1
+#   (e.g. WSL without `systemd=true` in /etc/wsl.conf) -- auto-detected, see has_systemd().
 # - HTTP only, bound to 127.0.0.1 (front it with a reverse proxy for external/HTTPS access)
 
 # ---------------- Config ----------------
@@ -38,6 +40,18 @@ require_ubuntu() {
       exit 1
     fi
   fi
+}
+
+# True when systemd is actually running as PID 1 (real Ubuntu host, or a WSL
+# distro with `[boot] systemd=true` set in /etc/wsl.conf -- "kieu moi"). False
+# for a WSL distro without that setting ("kieu cu"), where `systemctl`/D-Bus
+# calls fail with "System has not been booted with systemd as init system".
+has_systemd() {
+  [[ -d /run/systemd/system ]] && command -v systemctl >/dev/null 2>&1
+}
+
+is_wsl() {
+  [[ -n "${WSL_DISTRO_NAME:-}" ]] || grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null
 }
 
 install_git() {
@@ -173,6 +187,45 @@ EOF
   sudo systemctl --no-pager --full status "$SYSTEMD_UNIT" || true
 }
 
+configure_wsl_boot_command() {
+  local boot_cmd="su - $USER -c '$CODE_DIR/Tools/wsl_server_ctl.sh start'"
+
+  if [[ -f /etc/wsl.conf ]] && grep -q "wsl_server_ctl.sh" /etc/wsl.conf; then
+    echo "[INFO] /etc/wsl.conf already wires up wsl_server_ctl.sh; leaving it as-is."
+  elif [[ -f /etc/wsl.conf ]] && grep -q '^\[boot\]' /etc/wsl.conf; then
+    echo "[WARN] /etc/wsl.conf already has a [boot] section; add this line to it manually:"
+    echo "         command = \"$boot_cmd\""
+  else
+    echo "[INFO] Adding [boot] command to /etc/wsl.conf so the server restarts when WSL boots..."
+    sudo bash -c "cat >> /etc/wsl.conf" <<EOF
+
+[boot]
+command = "$boot_cmd"
+EOF
+  fi
+
+  echo "[WARN] WSL2 does not launch automatically when Windows starts. To fully auto-start"
+  echo "       on boot, add a Windows Task Scheduler entry (trigger: 'At log on') running:"
+  echo "         wsl.exe -d <YourDistroName> true"
+  echo "       (list distro names with 'wsl -l -v' from PowerShell)."
+}
+
+install_nohup_server() {
+  echo "[INFO] No systemd detected -- running the server via Tools/wsl_server_ctl.sh (nohup + restart-on-crash loop) instead."
+  chmod +x "$CODE_DIR/Tools/wsl_server_ctl.sh"
+  APP_ROOT="$APP_ROOT" CODE_DIR="$CODE_DIR" VENV_DIR="$VENV_DIR" LOG_DIR="$LOG_DIR" \
+    APP_MODULE="$APP_MODULE" APP_PORT="$APP_PORT" \
+    "$CODE_DIR/Tools/wsl_server_ctl.sh" restart
+
+  if is_wsl; then
+    configure_wsl_boot_command
+  else
+    echo "[WARN] No systemd and not detected as WSL -- the server is running now but won't"
+    echo "       restart on reboot. Wire '$CODE_DIR/Tools/wsl_server_ctl.sh start' into your"
+    echo "       init system (cron @reboot, rc.local, etc.) to persist it."
+  fi
+}
+
 build_images_microservices() {
   install_docker
   ensure_logs_volume
@@ -205,7 +258,7 @@ recreate_containers_microservices() {
 }
 
 post_checks() {
-  echo "[INFO] systemd service listening on :$APP_PORT"
+  echo "[INFO] Server listening on :$APP_PORT"
   if command -v curl >/dev/null 2>&1; then
     sleep 2
     echo "[INFO] Health check (HTTP):"
@@ -226,7 +279,11 @@ main() {
     echo "[WARN] exchange_key.json was created empty. Set real API keys before starting ADL/Asset control: '$CODE_DIR/config_menu.sh' or 'python Tools/manage_keys.py set <exchange> --local'."
   fi
 
-  install_systemd_server
+  if has_systemd; then
+    install_systemd_server
+  else
+    install_nohup_server
+  fi
 
   if [[ "$SKIP_MICROSERVICES" -eq 0 ]]; then
     build_images_microservices
